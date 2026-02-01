@@ -175,15 +175,9 @@ export const HomePage = (): React.ReactElement => {
 
         {/* Entry Count */}
         <div className="text-sm text-gray-500 dark:text-gray-400">
-          {hasActiveFilters ? (
-            <span>
-              Showing <span className="font-medium text-gray-700 dark:text-gray-300">{filteredVocabularies.length}</span> of {allVocabularies.length} entries
-            </span>
-          ) : (
-            <span>
-              <span className="font-medium text-gray-700 dark:text-gray-300">{allVocabularies.length}</span> {allVocabularies.length === 1 ? 'entry' : 'entries'}
-            </span>
-          )}
+          <span className="font-medium text-gray-700 dark:text-gray-300">{filteredVocabularies.length}</span>
+          {' / '}
+          {allVocabularies.length} {allVocabularies.length === 1 ? 'entry' : 'entries'}
         </div>
 
         {/* Vocabulary List */}
