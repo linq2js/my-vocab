@@ -1,6 +1,7 @@
 import { useState, useCallback, useId, FormEvent, ChangeEvent } from 'react';
 import { Input } from '../atoms/Input';
 import { Button } from '../atoms/Button';
+import { Icon } from '../atoms/Icon';
 import { TagInput } from '../molecules/TagInput';
 import { LANGUAGES, DEFAULT_LANGUAGE_CODE } from '../../constants/languages';
 import { ContentType } from '../../constants/contentTypes';
@@ -192,6 +193,22 @@ export const VocabForm = ({
   }, []);
 
   /**
+   * Handles paste button click - reads clipboard and sets text value.
+   */
+  const handlePaste = useCallback(async () => {
+    try {
+      const clipboardText = await navigator.clipboard.readText();
+      if (clipboardText) {
+        setText(clipboardText.trim());
+        setErrors((prev) => ({ ...prev, text: undefined }));
+        setEnrichError(null);
+      }
+    } catch (error) {
+      console.error('Failed to read clipboard:', error);
+    }
+  }, []);
+
+  /**
    * Handles description input change.
    */
   const handleDescriptionChange = useCallback(
@@ -266,17 +283,40 @@ export const VocabForm = ({
       className={`space-y-6 ${className}`}
       noValidate
     >
-      {/* Text Input */}
-      <Input
-        label="Text"
-        value={text}
-        onChange={handleTextChange}
-        placeholder="Enter word, phrase, or expression"
-        error={errors.text}
-        disabled={isFormDisabled}
-        required
-        fullWidth
-      />
+      {/* Text Input with Paste Button */}
+      <div>
+        <label 
+          htmlFor={`${formId}-text`}
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+        >
+          Text <span className="text-red-500">*</span>
+        </label>
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <Input
+              id={`${formId}-text`}
+              value={text}
+              onChange={handleTextChange}
+              placeholder="Enter word, phrase, or expression"
+              error={errors.text}
+              disabled={isFormDisabled}
+              fullWidth
+            />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="md"
+            onClick={handlePaste}
+            disabled={isFormDisabled}
+            title="Paste from clipboard"
+            aria-label="Paste from clipboard"
+            className="shrink-0"
+          >
+            <Icon name="clipboard" size="sm" />
+          </Button>
+        </div>
+      </div>
 
       {/* Language and Content Type Row */}
       <div className={`grid gap-4 ${hideContentType ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>

@@ -120,16 +120,14 @@ export const ContentTypeFilter = ({
 
   /**
    * Get chip CSS classes based on selection state.
-   * On small screens: circular buttons with single character
-   * On larger screens: pill-shaped buttons with full labels
+   * On small screens: pill buttons with full text, 2 per row
+   * On larger screens: inline pill-shaped buttons
    */
   const getChipClasses = (chipId: 'all' | ContentTypeValue): string => {
     const isSelected = isChipSelected(chipId);
 
     const baseClasses = [
-      // Circular on mobile, pill on larger screens
-      'w-9 h-9 sm:w-auto sm:h-auto',
-      'sm:px-3 sm:py-1.5',
+      'px-3 py-1.5',
       'flex items-center justify-center',
       'text-sm font-medium',
       'rounded-full',
@@ -161,7 +159,12 @@ export const ContentTypeFilter = ({
     ].join(' ');
   };
 
-  const containerClasses = ['flex flex-wrap gap-2', className]
+  // Grid layout: 2 columns on small screens, flex wrap on larger screens
+  const containerClasses = [
+    'grid grid-cols-2 gap-2',
+    'sm:flex sm:flex-wrap',
+    className,
+  ]
     .filter(Boolean)
     .join(' ');
 
@@ -180,13 +183,9 @@ export const ContentTypeFilter = ({
           disabled={disabled}
           className={getChipClasses(chip.id)}
           aria-pressed={isChipSelected(chip.id)}
-          aria-label={chip.label}
           data-testid={`content-type-chip-${chip.id}`}
         >
-          {/* Abbreviated label on small screens */}
-          <span className="sm:hidden">{chip.abbr}</span>
-          {/* Full label on larger screens */}
-          <span className="hidden sm:inline">{chip.label}</span>
+          {chip.label}
         </button>
       ))}
     </div>
