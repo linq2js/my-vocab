@@ -187,7 +187,7 @@ export const PlayPage = (): React.ReactElement => {
 
           <div className="text-center">
             <div className="mb-8">
-              <div className="w-28 h-28 mx-auto mb-4 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+              <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
                 <Icon name="volume" size="xl" className="text-white" />
               </div>
               <p className="text-gray-600 dark:text-gray-400">
@@ -315,11 +315,11 @@ export const PlayPage = (): React.ReactElement => {
             onClick={handlePlaySound}
             disabled={!isSupported}
             className={`
-              w-20 h-20 rounded-full flex items-center justify-center
+              w-16 h-16 rounded-full flex items-center justify-center
               transition-all duration-200 transform hover:scale-105
               ${hasPlayed 
-                ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' 
-                : 'bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg'
+                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' 
+                : 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-lg'
               }
               ${!isSupported ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
             `}
