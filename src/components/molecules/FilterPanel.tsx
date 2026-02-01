@@ -235,7 +235,7 @@ export const FilterPanel = ({
         <div className={compact ? 'flex items-end' : 'w-full'}>
           {!compact && <div className="h-6" />} {/* Spacer for label alignment */}
           <Button
-            variant="outline"
+            variant="danger"
             size="sm"
             onClick={handleReset}
             disabled={disabled}
