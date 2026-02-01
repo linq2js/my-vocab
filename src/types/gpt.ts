@@ -33,6 +33,68 @@ export interface GptProvider {
 }
 
 /**
+ * Grammatical forms of a vocabulary word.
+ * 
+ * Different parts of speech have different applicable forms:
+ * - Verbs: past, pastParticiple, presentParticiple, thirdPerson
+ * - Nouns: plural
+ * - Adjectives/Adverbs: comparative, superlative
+ * 
+ * @example
+ * ```typescript
+ * // Verb forms
+ * const verbForms: VocabularyForms = {
+ *   past: 'ran',
+ *   pastParticiple: 'run',
+ *   presentParticiple: 'running',
+ *   thirdPerson: 'runs',
+ * };
+ * 
+ * // Noun forms
+ * const nounForms: VocabularyForms = {
+ *   plural: 'children',
+ * };
+ * ```
+ */
+export interface VocabularyForms {
+  /** Past tense (verbs) */
+  past?: string;
+  
+  /** Past participle (verbs) */
+  pastParticiple?: string;
+  
+  /** Present participle / gerund (verbs) */
+  presentParticiple?: string;
+  
+  /** Third person singular present (verbs) */
+  thirdPerson?: string;
+  
+  /** Plural form (nouns) */
+  plural?: string;
+  
+  /** Comparative form (adjectives/adverbs) */
+  comparative?: string;
+  
+  /** Superlative form (adjectives/adverbs) */
+  superlative?: string;
+}
+
+/**
+ * User-requested extra enrichment data.
+ * Keys are field names requested by user, values are AI-generated content.
+ * 
+ * @example
+ * ```typescript
+ * const extra: ExtraEnrichment = {
+ *   synonyms: 'luck, fortune, chance, fate',
+ *   antonyms: 'misfortune, bad luck',
+ *   etymology: 'Coined by Horace Walpole in 1754',
+ * };
+ * ```
+ */
+export type ExtraEnrichment = Record<string, string>;
+
+/**
  * Response structure from GPT enrichment API calls.
  * Contains linguistic information about a vocabulary entry.
  * 
@@ -46,6 +108,13 @@ export interface GptProvider {
  *     'Finding that book was pure serendipity.',
  *     'It was serendipity that we met at the conference.',
  *   ],
+ *   forms: {
+ *     plural: 'serendipities',
+ *   },
+ *   extra: {
+ *     synonyms: 'luck, fortune, chance',
+ *     etymology: 'Coined by Horace Walpole in 1754',
+ *   },
  * };
  * ```
  */
@@ -61,4 +130,10 @@ export interface GptEnrichmentResponse {
   
   /** Example sentences demonstrating usage */
   examples: string[];
+  
+  /** Grammatical forms (conjugations, plural, comparative, etc.) */
+  forms?: VocabularyForms;
+  
+  /** User-requested extra enrichment fields (synonyms, etymology, etc.) */
+  extra?: ExtraEnrichment;
 }

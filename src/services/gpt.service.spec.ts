@@ -38,6 +38,7 @@ describe('gptService', () => {
     activeProviderId: 'openai',
     theme: 'system',
     defaultLanguage: 'en',
+    extraEnrichment: {},
   };
 
   beforeEach(() => {
@@ -103,7 +104,7 @@ describe('gptService', () => {
 
       expect(result).toEqual(mockEnrichmentResponse);
       expect(mockCacheService.get).toHaveBeenCalledWith('serendipity', 'en');
-      expect(mockOpenAIProvider.enrich).toHaveBeenCalledWith('serendipity', 'en');
+      expect(mockOpenAIProvider.enrich).toHaveBeenCalledWith('serendipity', 'en', undefined);
       expect(mockCacheService.set).toHaveBeenCalledWith(
         'serendipity',
         'en',
@@ -120,7 +121,7 @@ describe('gptService', () => {
 
       await service.enrich('serendipity', 'en');
 
-      expect(mockGeminiProvider.enrich).toHaveBeenCalledWith('serendipity', 'en');
+      expect(mockGeminiProvider.enrich).toHaveBeenCalledWith('serendipity', 'en', undefined);
       expect(mockOpenAIProvider.enrich).not.toHaveBeenCalled();
     });
 
@@ -214,6 +215,66 @@ describe('gptService', () => {
       service.close();
 
       expect(mockCacheService.close).toHaveBeenCalled();
+    });
+  });
+
+  describe('checkApiKeyStatus', () => {
+    it('should return configured status when API key is present', async () => {
+      const status = await service.checkApiKeyStatus();
+
+      expect(status).toEqual({
+        isConfigured: true,
+        providerId: 'openai',
+        providerName: 'OpenAI',
+      });
+    });
+
+    it('should return not configured when API key is empty', async () => {
+      vi.mocked(mockSettingsStorage.getSettings).mockResolvedValue({
+        ...mockSettings,
+        providers: [
+          { id: 'openai', name: 'OpenAI', apiKey: '', isActive: true },
+        ],
+      });
+
+      const status = await service.checkApiKeyStatus();
+
+      expect(status).toEqual({
+        isConfigured: false,
+        providerId: 'openai',
+        providerName: 'OpenAI',
+      });
+    });
+
+    it('should return not configured when no active provider', async () => {
+      vi.mocked(mockSettingsStorage.getSettings).mockResolvedValue({
+        ...mockSettings,
+        activeProviderId: null as unknown as 'openai', // Testing edge case
+        providers: [],
+      });
+
+      const status = await service.checkApiKeyStatus();
+
+      expect(status).toEqual({
+        isConfigured: false,
+        providerId: null,
+        providerName: null,
+      });
+    });
+
+    it('should return not configured when provider not found', async () => {
+      vi.mocked(mockSettingsStorage.getSettings).mockResolvedValue({
+        ...mockSettings,
+        activeProviderId: 'unknown' as 'openai', // Testing edge case with unknown provider
+      });
+
+      const status = await service.checkApiKeyStatus();
+
+      expect(status).toEqual({
+        isConfigured: false,
+        providerId: 'unknown',
+        providerName: null,
+      });
     });
   });
 });

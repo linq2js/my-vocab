@@ -51,15 +51,20 @@ export interface IGptProvider {
    *
    * @param text - The word, phrase, or expression to enrich
    * @param language - ISO language code (e.g., 'en', 'es', 'fr')
+   * @param extraFields - Optional comma-separated list of extra fields to request (e.g., 'synonyms, etymology')
    * @returns Promise resolving to enrichment data including definition, IPA, type, and examples
    * @throws Error if the API call fails or returns invalid data
    *
    * @example
    * ```typescript
+   * // Basic enrichment
    * const result = await provider.enrich('serendipity', 'en');
    * console.log(result.definition); // 'The occurrence of events by chance...'
-   * console.log(result.ipa); // '/ˌserənˈdɪpɪti/'
+   *
+   * // With extra fields
+   * const result = await provider.enrich('serendipity', 'en', 'synonyms, etymology');
+   * console.log(result.extra?.synonyms); // 'luck, fortune, chance'
    * ```
    */
-  enrich(text: string, language: string): Promise<GptEnrichmentResponse>;
+  enrich(text: string, language: string, extraFields?: string): Promise<GptEnrichmentResponse>;
 }

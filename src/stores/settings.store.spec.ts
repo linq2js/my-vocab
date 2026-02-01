@@ -340,6 +340,74 @@ describe('Settings Store', () => {
     });
   });
 
+  describe('extraEnrichment', () => {
+    beforeEach(async () => {
+      store = createSettingsStore();
+      await store.init();
+    });
+
+    it('should return default enrichment for content type with no saved preference', () => {
+      // When no custom value is set, returns the default for that content type
+      expect(store.getExtraEnrichment('vocabulary')).toBe('synonyms, antonyms, collocations');
+      expect(store.getExtraEnrichment('idiom')).toBe('origin, literal meaning, similar expressions');
+      expect(store.getExtraEnrichment('phrasal-verb')).toBe('synonyms, formal alternative, separable');
+      expect(store.getExtraEnrichment('quote')).toBe('author, context, interpretation');
+    });
+
+    it('should set extra enrichment for a content type', async () => {
+      await store.setExtraEnrichment('vocabulary', 'synonyms, antonyms');
+
+      expect(store.getExtraEnrichment('vocabulary')).toBe('synonyms, antonyms');
+    });
+
+    it('should persist extra enrichment to storage', async () => {
+      await store.setExtraEnrichment('idiom', 'origin, similar expressions');
+
+      expect(mockSaveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          extraEnrichment: expect.objectContaining({
+            idiom: 'origin, similar expressions',
+          }),
+        })
+      );
+    });
+
+    it('should maintain separate preferences for different content types', async () => {
+      await store.setExtraEnrichment('vocabulary', 'synonyms, etymology');
+      await store.setExtraEnrichment('idiom', 'origin, usage');
+      await store.setExtraEnrichment('phrasal-verb', 'formal alternatives');
+
+      expect(store.getExtraEnrichment('vocabulary')).toBe('synonyms, etymology');
+      expect(store.getExtraEnrichment('idiom')).toBe('origin, usage');
+      expect(store.getExtraEnrichment('phrasal-verb')).toBe('formal alternatives');
+      // quote was not set, so returns default
+      expect(store.getExtraEnrichment('quote')).toBe('author, context, interpretation');
+    });
+
+    it('should allow clearing a custom preference to use default', async () => {
+      // Set a custom value
+      await store.setExtraEnrichment('vocabulary', 'my custom fields');
+      expect(store.getExtraEnrichment('vocabulary')).toBe('my custom fields');
+
+      // Clear it by setting empty string - but note: empty string is still a custom value
+      // To truly clear, user would need to delete the key (not currently supported)
+      await store.setExtraEnrichment('vocabulary', '');
+      expect(store.getExtraEnrichment('vocabulary')).toBe('');
+    });
+
+    it('should return all extra enrichment preferences', async () => {
+      await store.setExtraEnrichment('vocabulary', 'synonyms');
+      await store.setExtraEnrichment('idiom', 'origin');
+
+      const prefs = store.getExtraEnrichmentPrefs();
+
+      expect(prefs).toEqual({
+        vocabulary: 'synonyms',
+        idiom: 'origin',
+      });
+    });
+  });
+
   describe('default settingsStore instance', () => {
     it('should export a default store instance', () => {
       expect(settingsStore).toBeDefined();

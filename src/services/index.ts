@@ -21,4 +21,6 @@ export type { IGptProvider, GptEnrichmentRequest } from './gpt-provider.interfac
 export { OpenAIProvider, GeminiProvider } from './providers';
 
 export { gptService } from './gpt.service';
-export type { GptService, GptServiceOptions, ProviderFactory } from './gpt.service';
+export type { GptService, GptServiceOptions, ProviderFactory, ApiKeyStatus } from './gpt.service';
+
+export { speechService, SpeechService } from './speech.service';

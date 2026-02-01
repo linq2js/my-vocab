@@ -1,7 +1,19 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { VocabCard } from './VocabCard';
 import type { Vocabulary } from '../../types/vocabulary';
+
+// Mock the useSpeech hook
+const mockSpeak = vi.fn();
+const mockStop = vi.fn();
+vi.mock('../../hooks/useSpeech', () => ({
+  useSpeech: () => ({
+    speak: mockSpeak,
+    stop: mockStop,
+    isSpeaking: false,
+    isSupported: true,
+  }),
+}));
 
 /**
  * Creates a mock vocabulary entry for testing
@@ -23,6 +35,10 @@ const createMockVocab = (overrides: Partial<Vocabulary> = {}): Vocabulary => ({
 });
 
 describe('VocabCard', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   describe('rendering', () => {
     it('renders vocabulary text', () => {
       const vocab = createMockVocab();
@@ -199,6 +215,39 @@ describe('VocabCard', () => {
 
       const article = screen.getByRole('article');
       expect(article).toHaveClass('custom-class');
+    });
+  });
+
+  describe('speech', () => {
+    it('renders speak button when speech is supported', () => {
+      const vocab = createMockVocab();
+      render(<VocabCard vocabulary={vocab} />);
+
+      expect(screen.getByRole('button', { name: /read aloud/i })).toBeInTheDocument();
+    });
+
+    it('calls speak with text and language when speak button is clicked', () => {
+      const vocab = createMockVocab({ text: 'hello', language: 'en' });
+      render(<VocabCard vocabulary={vocab} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /read aloud/i }));
+
+      expect(mockSpeak).toHaveBeenCalledWith('hello', 'en');
+    });
+
+    it('renders speak button in both collapsed and expanded views', () => {
+      const vocab = createMockVocab();
+      render(<VocabCard vocabulary={vocab} />);
+
+      // Collapsed view - should have speak button
+      expect(screen.getByRole('button', { name: /read aloud/i })).toBeInTheDocument();
+
+      // Expand the card
+      const expandButton = screen.getByRole('button', { name: /expand/i });
+      fireEvent.click(expandButton);
+
+      // Expanded view - should still have speak button
+      expect(screen.getByRole('button', { name: /read aloud/i })).toBeInTheDocument();
     });
   });
 });

@@ -9,43 +9,22 @@
  * const provider = new GeminiProvider('AIzaSy-your-api-key');
  * const enrichment = await provider.enrich('serendipity', 'en');
  * console.log(enrichment.definition);
+ *
+ * // With extra fields
+ * const enrichment = await provider.enrich('serendipity', 'en', 'synonyms, etymology');
+ * console.log(enrichment.extra?.synonyms);
  * ```
  */
 
 import type { IGptProvider } from '../gpt-provider.interface';
 import type { GptEnrichmentResponse, GptProviderId } from '../../types/gpt';
+import { createCombinedPrompt } from './prompts';
 
 /** Gemini API base URL */
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 /** Default model to use for enrichment */
 const DEFAULT_MODEL = 'gemini-2.0-flash';
-
-/**
- * Creates the prompt for vocabulary enrichment.
- * Combines system instructions and user request into a single prompt
- * since Gemini uses a different message format than OpenAI.
- *
- * @param text - The word, phrase, or expression to enrich
- * @param language - ISO language code (e.g., 'en', 'es', 'fr')
- * @returns The formatted prompt
- */
-function createPrompt(text: string, language: string): string {
-  return `You are a linguistic expert assistant that provides vocabulary enrichment data.
-You MUST respond with a valid JSON object containing exactly these fields:
-- definition: A clear, concise dictionary definition
-- ipa: The International Phonetic Alphabet pronunciation
-- type: The part of speech (noun, verb, adjective, etc.) or content type (idiom, phrasal verb, quote)
-- examples: An array of 2-3 example sentences demonstrating usage
-
-Respond ONLY with the JSON object, no additional text or markdown formatting.
-
-Provide linguistic enrichment data for the following word/phrase in language "${language}":
-
-"${text}"
-
-Return a JSON object with definition, ipa, type, and examples.`;
-}
 
 /**
  * Extracts JSON from a response that may be wrapped in markdown code blocks.
@@ -60,6 +39,24 @@ function extractJsonFromResponse(content: string): string {
     return jsonMatch[1].trim();
   }
   return content.trim();
+}
+
+/**
+ * Validates that an object has all string values.
+ *
+ * @param obj - The object to validate
+ * @returns True if all values are strings
+ */
+function isStringRecord(obj: unknown): boolean {
+  if (obj === undefined || obj === null) {
+    return true; // optional fields
+  }
+  if (typeof obj !== 'object') {
+    return false;
+  }
+  return Object.values(obj as Record<string, unknown>).every(
+    (value) => typeof value === 'string'
+  );
 }
 
 /**
@@ -82,7 +79,9 @@ function isValidEnrichmentResponse(
     typeof response.ipa === 'string' &&
     typeof response.type === 'string' &&
     Array.isArray(response.examples) &&
-    response.examples.every((ex) => typeof ex === 'string')
+    response.examples.every((ex) => typeof ex === 'string') &&
+    isStringRecord(response.forms) &&
+    isStringRecord(response.extra)
   );
 }
 
@@ -117,10 +116,15 @@ export class GeminiProvider implements IGptProvider {
    *
    * @param text - The word, phrase, or expression to enrich
    * @param language - ISO language code (e.g., 'en', 'es', 'fr')
+   * @param extraFields - Optional comma-separated list of extra fields to request
    * @returns Promise resolving to enrichment data
    * @throws Error if the API call fails, returns invalid data, or network error occurs
    */
-  async enrich(text: string, language: string): Promise<GptEnrichmentResponse> {
+  async enrich(
+    text: string,
+    language: string,
+    extraFields?: string
+  ): Promise<GptEnrichmentResponse> {
     const url = `${GEMINI_API_BASE}/${this.model}:generateContent?key=${this.apiKey}`;
 
     const response = await fetch(url, {
@@ -133,7 +137,7 @@ export class GeminiProvider implements IGptProvider {
           {
             parts: [
               {
-                text: createPrompt(text, language),
+                text: createCombinedPrompt(text, language, extraFields),
               },
             ],
           },

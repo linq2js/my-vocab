@@ -20,6 +20,7 @@ vi.mock('./stores/settings.store', () => ({
         activeProviderId: 'openai',
         theme: 'system',
         defaultLanguage: 'en',
+        extraEnrichment: {},
       })),
     },
     init: vi.fn().mockResolvedValue(undefined),

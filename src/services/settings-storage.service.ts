@@ -54,6 +54,7 @@ interface StoredSettings {
       isActive: boolean;
       // apiKey is stored separately in encryptedApiKeys
     }>;
+    // extraEnrichment is stored as-is (no encryption needed)
   };
 }
 
@@ -178,6 +179,7 @@ export function settingsStorageService(): SettingsStorageService {
         activeProviderId: stored.settings.activeProviderId,
         theme: stored.settings.theme,
         defaultLanguage: stored.settings.defaultLanguage,
+        extraEnrichment: stored.settings.extraEnrichment ?? {},
       };
     } catch {
       // Return default settings on any error
@@ -215,6 +217,7 @@ export function settingsStorageService(): SettingsStorageService {
         activeProviderId: settings.activeProviderId,
         theme: settings.theme,
         defaultLanguage: settings.defaultLanguage,
+        extraEnrichment: settings.extraEnrichment,
       },
     };
 

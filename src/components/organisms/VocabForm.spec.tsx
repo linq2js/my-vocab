@@ -6,9 +6,11 @@ import type { Vocabulary } from '../../types/vocabulary';
 
 // Mock the gptService
 const mockEnrich = vi.fn();
+const mockCheckApiKeyStatus = vi.fn();
 vi.mock('../../services/gpt.service', () => ({
   gptService: () => ({
     enrich: mockEnrich,
+    checkApiKeyStatus: mockCheckApiKeyStatus,
     clearCache: vi.fn(),
     close: vi.fn(),
   }),
@@ -25,6 +27,11 @@ describe('VocabForm', () => {
       ipa: '/test/',
       type: 'noun',
       examples: ['Example sentence'],
+    });
+    mockCheckApiKeyStatus.mockResolvedValue({
+      isConfigured: true,
+      providerId: 'openai',
+      providerName: 'OpenAI',
     });
   });
 
@@ -275,7 +282,7 @@ describe('VocabForm', () => {
       await user.click(enrichButton);
 
       await waitFor(() => {
-        expect(mockEnrich).toHaveBeenCalledWith('serendipity', 'en');
+        expect(mockEnrich).toHaveBeenCalledWith('serendipity', 'en', undefined);
       });
     });
 
@@ -308,8 +315,50 @@ describe('VocabForm', () => {
       await user.click(enrichButton);
 
       await waitFor(() => {
-        expect(screen.getByText(/failed to enrich/i)).toBeInTheDocument();
+        expect(screen.getByRole('alert')).toHaveTextContent('API error');
       });
+    });
+
+    it('should show friendly message when API key is not configured', async () => {
+      const user = userEvent.setup();
+      mockCheckApiKeyStatus.mockResolvedValue({
+        isConfigured: false,
+        providerId: 'openai',
+        providerName: 'OpenAI',
+      });
+
+      render(<VocabForm onSubmit={mockOnSubmit} />);
+
+      await user.type(screen.getByLabelText(/text/i), 'serendipity');
+
+      const enrichButton = screen.getByRole('button', { name: /enrich/i });
+      await user.click(enrichButton);
+
+      await waitFor(() => {
+        expect(screen.getByText(/configure.*api key.*settings/i)).toBeInTheDocument();
+      });
+      expect(mockEnrich).not.toHaveBeenCalled();
+    });
+
+    it('should show friendly message when no provider is configured', async () => {
+      const user = userEvent.setup();
+      mockCheckApiKeyStatus.mockResolvedValue({
+        isConfigured: false,
+        providerId: null,
+        providerName: null,
+      });
+
+      render(<VocabForm onSubmit={mockOnSubmit} />);
+
+      await user.type(screen.getByLabelText(/text/i), 'serendipity');
+
+      const enrichButton = screen.getByRole('button', { name: /enrich/i });
+      await user.click(enrichButton);
+
+      await waitFor(() => {
+        expect(screen.getByText(/configure.*api key.*settings/i)).toBeInTheDocument();
+      });
+      expect(mockEnrich).not.toHaveBeenCalled();
     });
   });
 

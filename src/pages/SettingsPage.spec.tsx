@@ -46,6 +46,7 @@ describe('SettingsPage', () => {
     activeProviderId: 'openai',
     theme: 'system',
     defaultLanguage: 'en',
+    extraEnrichment: {},
   };
 
   /**

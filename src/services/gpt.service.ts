@@ -61,6 +61,18 @@ export interface GptServiceOptions {
 }
 
 /**
+ * Status of API key configuration for the active provider.
+ */
+export interface ApiKeyStatus {
+  /** Whether the API key is configured (non-empty) */
+  isConfigured: boolean;
+  /** The active provider ID, or null if none */
+  providerId: string | null;
+  /** The active provider name, or null if not found */
+  providerName: string | null;
+}
+
+/**
  * GPT service interface type.
  */
 export interface GptService {
@@ -70,10 +82,19 @@ export interface GptService {
    *
    * @param text - The word, phrase, or expression to enrich
    * @param language - ISO language code (e.g., 'en', 'es', 'fr')
+   * @param extraFields - Optional comma-separated list of extra fields (e.g., 'synonyms, etymology')
    * @returns Promise resolving to enrichment data
    * @throws Error if no provider is configured, API key is missing, or all retries fail
    */
-  enrich: (text: string, language: string) => Promise<GptEnrichmentResponse>;
+  enrich: (text: string, language: string, extraFields?: string) => Promise<GptEnrichmentResponse>;
+
+  /**
+   * Checks if the active provider has an API key configured.
+   * Use this before attempting enrichment to show a friendly message.
+   *
+   * @returns Promise resolving to the API key status
+   */
+  checkApiKeyStatus: () => Promise<ApiKeyStatus>;
 
   /**
    * Clears all cached GPT responses.
@@ -177,19 +198,21 @@ export function gptService(options: GptServiceOptions = {}): GptService {
    * @param text - The word, phrase, or expression to enrich
    * @param language - ISO language code
    * @param provider - The provider to use
+   * @param extraFields - Optional extra fields to request
    * @returns Promise resolving to enrichment data
    * @throws Error if all retries fail
    */
   const enrichWithRetry = async (
     text: string,
     language: string,
-    provider: IGptProvider
+    provider: IGptProvider,
+    extraFields?: string
   ): Promise<GptEnrichmentResponse> => {
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        return await provider.enrich(text, language);
+        return await provider.enrich(text, language, extraFields);
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
@@ -211,7 +234,8 @@ export function gptService(options: GptServiceOptions = {}): GptService {
    */
   const enrich = async (
     text: string,
-    language: string
+    language: string,
+    extraFields?: string
   ): Promise<GptEnrichmentResponse> => {
     // Validate inputs
     const trimmedText = text.trim();
@@ -224,20 +248,63 @@ export function gptService(options: GptServiceOptions = {}): GptService {
       throw new Error('Language is required for enrichment');
     }
 
-    // Check cache first
-    const cached = await cache.get(trimmedText, trimmedLanguage);
-    if (cached) {
-      return cached;
+    const trimmedExtra = extraFields?.trim() || undefined;
+
+    // Check cache first (only for standard enrichment without extra fields)
+    // Extra fields are user-specific and shouldn't be cached
+    if (!trimmedExtra) {
+      const cached = await cache.get(trimmedText, trimmedLanguage);
+      if (cached) {
+        return cached;
+      }
     }
 
     // Get active provider and enrich
     const provider = await getActiveProvider();
-    const response = await enrichWithRetry(trimmedText, trimmedLanguage, provider);
+    const response = await enrichWithRetry(trimmedText, trimmedLanguage, provider, trimmedExtra);
 
-    // Cache the successful response
-    await cache.set(trimmedText, trimmedLanguage, response);
+    // Cache the successful response (only standard enrichment)
+    if (!trimmedExtra) {
+      await cache.set(trimmedText, trimmedLanguage, response);
+    }
 
     return response;
+  };
+
+  /**
+   * Checks if the active provider has an API key configured.
+   */
+  const checkApiKeyStatus = async (): Promise<ApiKeyStatus> => {
+    const settings = await settingsStorage.getSettings();
+
+    // No active provider configured
+    if (!settings.activeProviderId || settings.providers.length === 0) {
+      return {
+        isConfigured: false,
+        providerId: null,
+        providerName: null,
+      };
+    }
+
+    const providerConfig = settings.providers.find(
+      (p) => p.id === settings.activeProviderId
+    );
+
+    // Provider not found in list
+    if (!providerConfig) {
+      return {
+        isConfigured: false,
+        providerId: settings.activeProviderId,
+        providerName: null,
+      };
+    }
+
+    // Check if API key is present
+    return {
+      isConfigured: Boolean(providerConfig.apiKey),
+      providerId: providerConfig.id,
+      providerName: providerConfig.name,
+    };
   };
 
   /**
@@ -256,6 +323,7 @@ export function gptService(options: GptServiceOptions = {}): GptService {
 
   return {
     enrich,
+    checkApiKeyStatus,
     clearCache,
     close,
   };

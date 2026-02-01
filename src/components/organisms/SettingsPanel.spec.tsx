@@ -13,6 +13,7 @@ const mockSettings: AppSettings = {
   activeProviderId: 'openai',
   theme: 'system',
   defaultLanguage: 'en',
+  extraEnrichment: {},
 };
 
 describe('SettingsPanel', () => {

@@ -31,8 +31,9 @@
  */
 
 import { atom } from 'atomirx';
-import type { AppSettings, Theme } from '../types/settings';
-import { DEFAULT_APP_SETTINGS } from '../types/settings';
+import type { AppSettings, Theme, ExtraEnrichmentPrefs } from '../types/settings';
+import type { ContentType } from '../types/vocabulary';
+import { DEFAULT_APP_SETTINGS, DEFAULT_EXTRA_ENRICHMENT } from '../types/settings';
 import type { GptProvider, GptProviderId } from '../types/gpt';
 import {
   settingsStorageService,
@@ -120,6 +121,30 @@ export interface SettingsStore {
    * @returns Promise resolving when reset is complete
    */
   reset: () => Promise<void>;
+
+  /**
+   * Gets the extra enrichment text for a content type.
+   *
+   * @param contentType - The content type to get extra enrichment for
+   * @returns The saved extra enrichment text or empty string
+   */
+  getExtraEnrichment: (contentType: ContentType) => string;
+
+  /**
+   * Sets the extra enrichment text for a content type.
+   *
+   * @param contentType - The content type to set extra enrichment for
+   * @param text - The extra enrichment text to save
+   * @returns Promise resolving when change is persisted
+   */
+  setExtraEnrichment: (contentType: ContentType, text: string) => Promise<void>;
+
+  /**
+   * Gets all extra enrichment preferences.
+   *
+   * @returns The extra enrichment preferences object
+   */
+  getExtraEnrichmentPrefs: () => ExtraEnrichmentPrefs;
 }
 
 /**
@@ -246,6 +271,44 @@ export function createSettingsStore(
     await storage.clearSettings();
   };
 
+  /**
+   * Gets the extra enrichment text for a content type.
+   * Returns the user's custom value if set, otherwise returns the default for that content type.
+   */
+  const getExtraEnrichment = (contentType: ContentType): string => {
+    const customValue = settings$.get().extraEnrichment[contentType];
+    // Return custom value if user has set one, otherwise use default
+    if (customValue !== undefined) {
+      return customValue;
+    }
+    return DEFAULT_EXTRA_ENRICHMENT[contentType] ?? '';
+  };
+
+  /**
+   * Sets the extra enrichment text for a content type.
+   */
+  const setExtraEnrichment = async (
+    contentType: ContentType,
+    text: string
+  ): Promise<void> => {
+    settings$.set((prev) => ({
+      ...prev,
+      extraEnrichment: {
+        ...prev.extraEnrichment,
+        [contentType]: text,
+      },
+    }));
+
+    await persistSettings();
+  };
+
+  /**
+   * Gets all extra enrichment preferences.
+   */
+  const getExtraEnrichmentPrefs = (): ExtraEnrichmentPrefs => {
+    return settings$.get().extraEnrichment;
+  };
+
   return {
     settings$,
     init,
@@ -256,6 +319,9 @@ export function createSettingsStore(
     getActiveProvider,
     getProviderById,
     reset,
+    getExtraEnrichment,
+    setExtraEnrichment,
+    getExtraEnrichmentPrefs,
   };
 }
 

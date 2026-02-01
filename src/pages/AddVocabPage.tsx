@@ -61,7 +61,7 @@ const CONTENT_TYPE_CONFIG: Record<string, ContentTypeConfig> = {
 };
 
 /**
- * AddVocabPage component - page for adding new vocabulary entries.
+ * AddVocabPage component - page for adding/editing vocabulary entries.
  *
  * @returns The AddVocabPage component
  */
@@ -69,20 +69,39 @@ export const AddVocabPage = (): React.ReactElement => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // Get content type and text from URL parameters
+  // Get content type, text, and edit ID from URL parameters
   const typeParam = searchParams.get('type') || 'word';
   const textParam = searchParams.get('text') || '';
+  const editId = searchParams.get('edit');
   
-  const config = useMemo(() => 
-    CONTENT_TYPE_CONFIG[typeParam] || CONTENT_TYPE_CONFIG.word,
-    [typeParam]
-  );
+  // Determine if we're in edit mode
+  const isEditMode = Boolean(editId);
+  
+  // Get vocabulary to edit (if in edit mode)
+  const vocabularyToEdit = useMemo(() => {
+    if (!editId) return null;
+    return vocabStore.getById(editId);
+  }, [editId]);
 
-  // Build initial data from URL parameters
-  const initialData = useMemo(() => ({
-    contentType: config?.contentType ?? 'vocabulary',
-    text: textParam,
-  } as Vocabulary), [config?.contentType, textParam]);
+  const config = useMemo(() => {
+    // In edit mode, use the vocabulary's content type
+    if (vocabularyToEdit) {
+      const typeKey = vocabularyToEdit.contentType;
+      return CONTENT_TYPE_CONFIG[typeKey] || CONTENT_TYPE_CONFIG.word;
+    }
+    return CONTENT_TYPE_CONFIG[typeParam] || CONTENT_TYPE_CONFIG.word;
+  }, [typeParam, vocabularyToEdit]);
+
+  // Build initial data from URL parameters or existing vocabulary
+  const initialData = useMemo(() => {
+    if (vocabularyToEdit) {
+      return vocabularyToEdit;
+    }
+    return {
+      contentType: config?.contentType ?? 'vocabulary',
+      text: textParam,
+    } as Vocabulary;
+  }, [config?.contentType, textParam, vocabularyToEdit]);
 
   // Loading state for save operation
   const [isSaving, setIsSaving] = useState(false);
@@ -95,7 +114,7 @@ export const AddVocabPage = (): React.ReactElement => {
   }, [navigate]);
 
   /**
-   * Handle form submission - add vocabulary and navigate home.
+   * Handle form submission - add or update vocabulary and navigate home.
    *
    * @param data - Form data from VocabForm
    */
@@ -104,7 +123,7 @@ export const AddVocabPage = (): React.ReactElement => {
       setIsSaving(true);
 
       try {
-        await vocabStore.add({
+        const vocabData = {
           text: data.text,
           description: data.description,
           tags: data.tags,
@@ -114,18 +133,31 @@ export const AddVocabPage = (): React.ReactElement => {
           ipa: data.ipa,
           examples: data.examples,
           partOfSpeech: data.partOfSpeech,
-        });
+          forms: data.forms,
+          extra: data.extra,
+        };
+
+        if (isEditMode && vocabularyToEdit) {
+          // Update existing vocabulary - merge with existing data
+          await vocabStore.update({
+            ...vocabularyToEdit,
+            ...vocabData,
+          });
+        } else {
+          // Add new vocabulary
+          await vocabStore.add(vocabData);
+        }
 
         // Navigate home on success
         navigateHome();
       } catch (error) {
         // Log error but don't throw - form will show error state
-        console.error('Failed to add vocabulary:', error);
+        console.error(`Failed to ${isEditMode ? 'update' : 'add'} vocabulary:`, error);
       } finally {
         setIsSaving(false);
       }
     },
-    [navigateHome]
+    [navigateHome, isEditMode, vocabularyToEdit]
   );
 
   /**
@@ -150,11 +182,17 @@ export const AddVocabPage = (): React.ReactElement => {
               <Icon name="chevron-left" size="md" />
             </Link>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {config?.title ?? 'Add Vocabulary'}
+              {isEditMode 
+                ? `Edit ${config?.title?.replace('Add ', '') ?? 'Vocabulary'}`
+                : (config?.title ?? 'Add Vocabulary')
+              }
             </h2>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 ml-12">
-            {config?.description ?? 'Add a new word or phrase to your collection.'}
+            {isEditMode
+              ? `Update this ${config?.contentType ?? 'vocabulary'} entry.`
+              : (config?.description ?? 'Add a new word or phrase to your collection.')
+            }
           </p>
         </div>
 

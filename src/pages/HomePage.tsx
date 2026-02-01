@@ -144,11 +144,11 @@ export const HomePage = (): React.ReactElement => {
   }, [navigate]);
 
   /**
-   * Handle edit vocabulary action.
+   * Handle edit vocabulary action - navigate to edit page.
    */
   const handleEditVocabulary = useCallback((vocabulary: Vocabulary): void => {
-    uiStore.openModal('editVocab', vocabulary);
-  }, []);
+    navigate(`/add?edit=${vocabulary.id}`);
+  }, [navigate]);
 
   /**
    * Handle delete vocabulary action.

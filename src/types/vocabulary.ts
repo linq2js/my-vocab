@@ -1,3 +1,5 @@
+import type { VocabularyForms, ExtraEnrichment } from './gpt';
+
 /**
  * Content type classification for vocabulary entries.
  * - vocabulary: Single word or term
@@ -6,6 +8,9 @@
  * - quote: Memorable quote or saying
  */
 export type ContentType = 'vocabulary' | 'idiom' | 'phrasal-verb' | 'quote';
+
+// Re-export types for convenience
+export type { VocabularyForms, ExtraEnrichment } from './gpt';
 
 /**
  * Represents a vocabulary entry in the application.
@@ -58,6 +63,12 @@ export interface Vocabulary {
   
   /** Part of speech (noun, verb, adjective, etc.) */
   partOfSpeech?: string;
+  
+  /** Grammatical forms (conjugations, plural, comparative, etc.) */
+  forms?: VocabularyForms;
+  
+  /** User-requested extra enrichment fields (synonyms, etymology, etc.) */
+  extra?: ExtraEnrichment;
   
   /** Timestamp when the entry was created */
   createdAt: Date;

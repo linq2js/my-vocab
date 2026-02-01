@@ -1,4 +1,4 @@
-import { useState, useCallback, useId, FormEvent, ChangeEvent } from 'react';
+import { useState, useCallback, useId, useEffect, useRef, FormEvent, ChangeEvent } from 'react';
 import { Input } from '../atoms/Input';
 import { Button } from '../atoms/Button';
 import { Icon } from '../atoms/Icon';
@@ -6,8 +6,9 @@ import { TagInput } from '../molecules/TagInput';
 import { LANGUAGES, DEFAULT_LANGUAGE_CODE } from '../../constants/languages';
 import { ContentType } from '../../constants/contentTypes';
 import { gptService } from '../../services/gpt.service';
+import { settingsStore } from '../../stores/settings.store';
 import { useNetworkStatus, getNetworkErrorMessage } from '../../hooks';
-import type { Vocabulary, ContentType as ContentTypeValue } from '../../types/vocabulary';
+import type { Vocabulary, ContentType as ContentTypeValue, VocabularyForms, ExtraEnrichment } from '../../types/vocabulary';
 
 /**
  * Form data structure for vocabulary creation/editing.
@@ -23,6 +24,8 @@ export interface VocabFormData {
   ipa?: string;
   examples?: string[];
   partOfSpeech?: string;
+  forms?: VocabularyForms;
+  extra?: ExtraEnrichment;
 }
 
 /**
@@ -59,6 +62,28 @@ const CONTENT_TYPE_OPTIONS: { value: ContentTypeValue; label: string }[] = [
   { value: ContentType.PHRASAL_VERB, label: 'Phrasal Verb' },
   { value: ContentType.QUOTE, label: 'Quote' },
 ];
+
+/**
+ * Maps form keys to human-readable labels.
+ */
+const FORM_LABELS: Record<string, string> = {
+  past: 'Past',
+  pastParticiple: 'Past Participle',
+  presentParticiple: 'Present Participle',
+  thirdPerson: '3rd Person',
+  plural: 'Plural',
+  comparative: 'Comparative',
+  superlative: 'Superlative',
+};
+
+/**
+ * Formats a form key into a human-readable label.
+ * @param key - The form key (e.g., 'pastParticiple')
+ * @returns The formatted label (e.g., 'Past Participle')
+ */
+function formatFormLabel(key: string): string {
+  return FORM_LABELS[key] || key.replace(/([A-Z])/g, ' $1').trim();
+}
 
 /**
  * VocabForm organism component for creating and editing vocabulary entries.
@@ -105,7 +130,10 @@ export const VocabForm = ({
   // Form state
   const [text, setText] = useState(initialData?.text ?? '');
   const [description, setDescription] = useState(initialData?.description ?? '');
-  const [language, setLanguage] = useState(initialData?.language ?? DEFAULT_LANGUAGE_CODE);
+  // Use saved default language from settings, or initialData for edit mode
+  const [language, setLanguage] = useState(
+    initialData?.language ?? settingsStore.settings$.get().defaultLanguage ?? DEFAULT_LANGUAGE_CODE
+  );
   const [contentType, setContentType] = useState<ContentTypeValue>(
     initialData?.contentType ?? ContentType.VOCABULARY
   );
@@ -116,11 +144,50 @@ export const VocabForm = ({
   const [ipa, setIpa] = useState(initialData?.ipa);
   const [examples, setExamples] = useState(initialData?.examples);
   const [partOfSpeech, setPartOfSpeech] = useState(initialData?.partOfSpeech);
+  const [forms, setForms] = useState<VocabularyForms | undefined>(initialData?.forms);
+  const [extra, setExtra] = useState<ExtraEnrichment | undefined>(initialData?.extra);
+
+  // Extra enrichment request (user input for custom fields)
+  // Initialize from settings based on content type
+  const [extraRequest, setExtraRequest] = useState(() =>
+    settingsStore.getExtraEnrichment(initialData?.contentType ?? ContentType.VOCABULARY)
+  );
+
+  // Track if extraRequest was modified by user (to avoid overwriting on content type change)
+  const extraRequestModifiedRef = useRef(false);
 
   // UI state
   const [errors, setErrors] = useState<FormErrors>({});
   const [isEnriching, setIsEnriching] = useState(false);
   const [enrichError, setEnrichError] = useState<string | null>(null);
+
+  /**
+   * Load saved extra enrichment when content type changes.
+   */
+  useEffect(() => {
+    // Only update if user hasn't manually modified the field
+    if (!extraRequestModifiedRef.current) {
+      const savedExtra = settingsStore.getExtraEnrichment(contentType);
+      setExtraRequest(savedExtra);
+    }
+  }, [contentType]);
+
+  /**
+   * Save extra enrichment to settings when user finishes editing (on blur).
+   */
+  const handleExtraRequestBlur = useCallback(() => {
+    settingsStore.setExtraEnrichment(contentType, extraRequest);
+    // Reset the modified flag after saving
+    extraRequestModifiedRef.current = false;
+  }, [contentType, extraRequest]);
+
+  /**
+   * Handle extra request input change.
+   */
+  const handleExtraRequestChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    setExtraRequest(e.target.value);
+    extraRequestModifiedRef.current = true;
+  }, []);
 
   /**
    * Validates the form and returns true if valid.
@@ -157,6 +224,8 @@ export const VocabForm = ({
         ipa,
         examples,
         partOfSpeech,
+        forms,
+        extra,
       };
 
       // Preserve existing data in edit mode
@@ -177,6 +246,8 @@ export const VocabForm = ({
       ipa,
       examples,
       partOfSpeech,
+      forms,
+      extra,
       initialData,
       onSubmit,
       validateForm,
@@ -220,9 +291,13 @@ export const VocabForm = ({
 
   /**
    * Handles language select change.
+   * Also saves the language as the new default for future entries.
    */
   const handleLanguageChange = useCallback((e: ChangeEvent<HTMLSelectElement>) => {
-    setLanguage(e.target.value);
+    const newLanguage = e.target.value;
+    setLanguage(newLanguage);
+    // Save as default for next time (fire and forget)
+    settingsStore.setDefaultLanguage(newLanguage);
   }, []);
 
   /**
@@ -240,7 +315,7 @@ export const VocabForm = ({
 
   /**
    * Triggers GPT enrichment for the current text.
-   * Handles offline scenarios gracefully.
+   * Handles offline scenarios and missing API key gracefully.
    */
   const handleEnrich = useCallback(async () => {
     if (!text.trim()) {
@@ -258,12 +333,25 @@ export const VocabForm = ({
 
     try {
       const gpt = gptService();
-      const enrichment = await gpt.enrich(text.trim(), language);
+
+      // Check if API key is configured before attempting enrichment
+      const apiKeyStatus = await gpt.checkApiKeyStatus();
+      if (!apiKeyStatus.isConfigured) {
+        const providerName = apiKeyStatus.providerName || 'AI provider';
+        setEnrichError(
+          `Please configure your ${providerName} API key in Settings to use AI enrichment.`
+        );
+        return;
+      }
+
+      const enrichment = await gpt.enrich(text.trim(), language, extraRequest || undefined);
 
       setDefinition(enrichment.definition);
       setIpa(enrichment.ipa);
       setExamples(enrichment.examples);
       setPartOfSpeech(enrichment.type);
+      setForms(enrichment.forms);
+      setExtra(enrichment.extra);
     } catch (error) {
       // Use graceful error message
       const message = getNetworkErrorMessage(error, 'Failed to enrich vocabulary');
@@ -271,7 +359,7 @@ export const VocabForm = ({
     } finally {
       setIsEnriching(false);
     }
-  }, [text, language, isOffline]);
+  }, [text, language, isOffline, extraRequest]);
 
   const canEnrich = text.trim().length > 0 && !loading && !isEnriching && !isOffline;
   const isFormDisabled = loading;
@@ -416,6 +504,22 @@ export const VocabForm = ({
           </Button>
         </div>
 
+        {/* Extra Fields Request Input */}
+        <div className="mb-3">
+          <Input
+            value={extraRequest}
+            onChange={handleExtraRequestChange}
+            onBlur={handleExtraRequestBlur}
+            placeholder="Extra fields: synonyms, antonyms, etymology..."
+            disabled={isFormDisabled || isEnriching}
+            fullWidth
+            size="sm"
+          />
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Optional: Request additional AI-generated fields (comma-separated). Saved per content type.
+          </p>
+        </div>
+
         {/* Enrichment Error */}
         {enrichError && (
           <p className="text-sm text-red-500 mb-3" role="alert">
@@ -424,8 +528,23 @@ export const VocabForm = ({
         )}
 
         {/* Enrichment Results Preview */}
-        {(definition || ipa || partOfSpeech || (examples && examples.length > 0)) && (
+        {(definition || ipa || partOfSpeech || (examples && examples.length > 0) || (forms && Object.keys(forms).length > 0) || (extra && Object.keys(extra).length > 0)) && (
           <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-2 text-sm">
+            {/* Extra fields displayed FIRST (user-requested custom enrichment) */}
+            {extra && Object.keys(extra).length > 0 && (
+              <div className="border-b border-gray-200 dark:border-gray-600 pb-2 mb-2">
+                {Object.entries(extra).map(([key, value]) => (
+                  value && (
+                    <p key={key} className="mb-1">
+                      <span className="font-medium text-purple-700 dark:text-purple-300 capitalize">
+                        {key}:
+                      </span>{' '}
+                      <span className="text-gray-600 dark:text-gray-400">{value}</span>
+                    </p>
+                  )
+                ))}
+              </div>
+            )}
             {partOfSpeech && (
               <p>
                 <span className="font-medium text-gray-700 dark:text-gray-300">
@@ -447,6 +566,26 @@ export const VocabForm = ({
                 </span>{' '}
                 <span className="text-gray-600 dark:text-gray-400">{definition}</span>
               </p>
+            )}
+            {forms && Object.keys(forms).length > 0 && (
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">
+                  Forms:
+                </span>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {Object.entries(forms).map(([key, value]) => (
+                    value && (
+                      <span
+                        key={key}
+                        className="inline-flex items-center px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-xs"
+                      >
+                        <span className="font-medium">{formatFormLabel(key)}:</span>
+                        <span className="ml-1">{value}</span>
+                      </span>
+                    )
+                  ))}
+                </div>
+              </div>
             )}
             {examples && examples.length > 0 && (
               <div>

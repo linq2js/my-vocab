@@ -5,6 +5,7 @@ import { Button } from '../atoms/Button';
 import { Icon } from '../atoms/Icon';
 import type { Vocabulary } from '../../types/vocabulary';
 import { getContentTypeAbbr, getContentTypeLabel } from '../../constants/contentTypes';
+import { useSpeech } from '../../hooks/useSpeech';
 
 /**
  * Props for the VocabCard component
@@ -31,6 +32,26 @@ const getContentTypeBadgeVariant = (contentType: Vocabulary['contentType']): 'pr
     quote: 'info',
   };
   return variants[contentType];
+};
+
+/**
+ * Maps form keys to human-readable labels.
+ */
+const FORM_LABELS: Record<string, string> = {
+  past: 'Past',
+  pastParticiple: 'Past Participle',
+  presentParticiple: 'Present Participle',
+  thirdPerson: '3rd Person',
+  plural: 'Plural',
+  comparative: 'Comparative',
+  superlative: 'Superlative',
+};
+
+/**
+ * Formats a form key into a human-readable label.
+ */
+const formatFormLabel = (key: string): string => {
+  return FORM_LABELS[key] || key.replace(/([A-Z])/g, ' $1').trim();
 };
 
 /**
@@ -67,6 +88,7 @@ export const VocabCard = ({
 }: VocabCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const { speak, isSpeaking, isSupported } = useSpeech();
 
   const {
     text,
@@ -77,11 +99,16 @@ export const VocabCard = ({
     contentType,
     partOfSpeech,
     description,
+    language,
+    forms,
+    extra,
   } = vocabulary;
 
   const hasExamples = examples && examples.length > 0;
   const hasTags = tags && tags.length > 0;
-  const hasExpandableContent = hasExamples || hasTags || definition;
+  const hasForms = forms && Object.keys(forms).length > 0;
+  const hasExtra = extra && Object.keys(extra).length > 0;
+  const hasExpandableContent = hasExamples || hasTags || definition || hasForms || hasExtra;
 
   /**
    * Toggle expanded state
@@ -117,6 +144,13 @@ export const VocabCard = ({
    */
   const handleCancelDelete = () => {
     setShowDeleteConfirm(false);
+  };
+
+  /**
+   * Handle speak button click
+   */
+  const handleSpeak = () => {
+    speak(text, language);
   };
 
   // Card container classes
@@ -203,12 +237,23 @@ export const VocabCard = ({
             </div>
           </div>
           
-          {/* IPA and Part of Speech */}
+          {/* IPA, Speak Button, and Part of Speech */}
           <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
             {ipa && (
               <span data-testid="vocab-ipa" className="font-mono">
                 {ipa}
               </span>
+            )}
+            {/* Speak Button */}
+            {isSupported && (
+              <button
+                onClick={handleSpeak}
+                className="p-1 rounded text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:text-gray-400 dark:hover:text-blue-400 dark:hover:bg-blue-900/20 transition-colors"
+                aria-label="Read aloud"
+                disabled={isSpeaking}
+              >
+                <Icon name="volume" size="sm" />
+              </button>
             )}
             {partOfSpeech && (
               <span className="italic">{partOfSpeech}</span>
@@ -281,17 +326,46 @@ export const VocabCard = ({
             </h3>
           </div>
 
-          {/* IPA and Part of Speech */}
+          {/* IPA, Speak Button, and Part of Speech */}
           <div className="flex items-center gap-2 text-base text-gray-500 dark:text-gray-400">
             {ipa && (
               <span data-testid="vocab-ipa" className="font-mono">
                 {ipa}
               </span>
             )}
+            {/* Speak Button */}
+            {isSupported && (
+              <button
+                onClick={handleSpeak}
+                className="p-1 rounded text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:text-gray-400 dark:hover:text-blue-400 dark:hover:bg-blue-900/20 transition-colors"
+                aria-label="Read aloud"
+                disabled={isSpeaking}
+              >
+                <Icon name="volume" size="sm" />
+              </button>
+            )}
             {partOfSpeech && (
               <span className="italic">{partOfSpeech}</span>
             )}
           </div>
+
+          {/* Extra Fields (user-requested custom enrichment) - displayed FIRST */}
+          {hasExtra && (
+            <div data-testid="vocab-extra" className="border-b border-gray-200 dark:border-gray-600 pb-3 mb-3">
+              {Object.entries(extra!).map(([key, value]) => (
+                value && (
+                  <div key={key} className="mb-2 last:mb-0">
+                    <h4 className="text-xs font-semibold text-purple-600 dark:text-purple-400 tracking-wide mb-1 capitalize">
+                      {key}
+                    </h4>
+                    <p className="text-base text-gray-700 dark:text-gray-300">
+                      {value}
+                    </p>
+                  </div>
+                )
+              ))}
+            </div>
+          )}
 
           {/* Definition */}
           {(definition || description) && (
@@ -302,6 +376,28 @@ export const VocabCard = ({
               <p className="text-base text-gray-700 dark:text-gray-300">
                 {definition || description}
               </p>
+            </div>
+          )}
+
+          {/* Forms */}
+          {hasForms && (
+            <div data-testid="vocab-forms">
+              <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                Forms
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(forms!).map(([key, value]) => (
+                  value && (
+                    <span
+                      key={key}
+                      className="inline-flex items-center px-2 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-sm"
+                    >
+                      <span className="font-medium">{formatFormLabel(key)}:</span>
+                      <span className="ml-1">{value}</span>
+                    </span>
+                  )
+                ))}
+              </div>
             </div>
           )}
 
