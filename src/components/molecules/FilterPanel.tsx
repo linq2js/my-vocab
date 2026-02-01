@@ -35,6 +35,7 @@ import { useSelector } from 'atomirx/react';
 import { uiStore } from '../../stores/ui.store';
 import { vocabStore } from '../../stores/vocab.store';
 import { LANGUAGES } from '../../constants/languages';
+import { separateTags } from '../../constants/predefinedTags';
 import { Icon } from '../atoms/Icon';
 import { Button } from '../atoms/Button';
 
@@ -155,6 +156,21 @@ export const FilterPanel = ({
     return PART_OF_SPEECH_OPTIONS.filter((opt) => partsOfSpeech.has(opt.value));
   }, [allItems]);
 
+  // Compute available custom tags based on actual vocabulary entries
+  const availableCustomTags = useMemo(() => {
+    const customTagSet = new Set<string>();
+    for (const item of allItems) {
+      if (item.tags && item.tags.length > 0) {
+        const { custom } = separateTags(item.tags);
+        for (const tag of custom) {
+          customTagSet.add(tag);
+        }
+      }
+    }
+    // Sort alphabetically
+    return Array.from(customTagSet).sort((a, b) => a.localeCompare(b));
+  }, [allItems]);
+
   /**
    * Handle language filter change.
    */
@@ -176,6 +192,18 @@ export const FilterPanel = ({
       onPartOfSpeechChange?.(value);
     },
     [onPartOfSpeechChange]
+  );
+
+  /**
+   * Handle custom tag filter change.
+   */
+  const handleCustomTagChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const value = e.target.value;
+      // Store as array (supports multiple tags in future)
+      uiStore.setFilters({ tags: value ? [value] : [] });
+    },
+    []
   );
 
   /**
@@ -258,6 +286,33 @@ export const FilterPanel = ({
           ))}
         </select>
       </div>
+
+      {/* Custom Tag Filter */}
+      {availableCustomTags.length > 0 && (
+        <div className={filterItemClasses}>
+          <label
+            htmlFor="filter-custom-tag"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+          >
+            Custom Tag
+          </label>
+          <select
+            id="filter-custom-tag"
+            value={filters.tags[0] ?? ''}
+            onChange={handleCustomTagChange}
+            disabled={disabled}
+            className={selectClasses}
+            aria-label="Filter by custom tag"
+          >
+            <option value="">All Tags</option>
+            {availableCustomTags.map((tag) => (
+              <option key={tag} value={tag}>
+                {tag}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Reset Button */}
       {hasActiveFilters && (

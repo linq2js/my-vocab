@@ -8,6 +8,7 @@ import { LANGUAGES, DEFAULT_LANGUAGE_CODE } from '../../constants/languages';
 import { PREDEFINED_TAGS, separateTags, matchPartOfSpeechToTag } from '../../constants/predefinedTags';
 import { gptService } from '../../services/gpt.service';
 import { settingsStore } from '../../stores/settings.store';
+import { vocabStore } from '../../stores/vocab.store';
 import { useNetworkStatus, getNetworkErrorMessage } from '../../hooks';
 import type { Vocabulary, VocabularyForms, ExtraEnrichment, WordSense } from '../../types/vocabulary';
 
@@ -120,6 +121,23 @@ export const VocabForm = ({
   const initialTags = useMemo(() => {
     return separateTags(initialData?.tags ?? []);
   }, [initialData?.tags]);
+
+  // Get all vocabulary items to compute available custom tags
+  const allVocabularies = useSelector(vocabStore.items$);
+
+  // Compute available custom tags from all vocabulary entries for autocomplete
+  const availableCustomTags = useMemo(() => {
+    const customTagSet = new Set<string>();
+    for (const item of allVocabularies) {
+      if (item.tags && item.tags.length > 0) {
+        const { custom } = separateTags(item.tags);
+        for (const tag of custom) {
+          customTagSet.add(tag);
+        }
+      }
+    }
+    return Array.from(customTagSet).sort((a, b) => a.localeCompare(b));
+  }, [allVocabularies]);
 
   // Form state
   const [text, setText] = useState(initialData?.text ?? '');
@@ -542,9 +560,10 @@ export const VocabForm = ({
         label="Custom Tags"
         tags={customTags}
         onChange={handleCustomTagsChange}
-        placeholder="Type and press Enter..."
+        placeholder="Type to search or add..."
         disabled={isFormDisabled}
-        helperText="Add your own tags for organization"
+        helperText="Type to see existing tags or add new ones"
+        suggestions={availableCustomTags}
       />
 
       {/* GPT Enrichment Section */}

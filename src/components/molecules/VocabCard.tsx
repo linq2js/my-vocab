@@ -4,7 +4,7 @@ import { Button } from '../atoms/Button';
 import { Icon } from '../atoms/Icon';
 import { ClickableText } from '../atoms/ClickableText';
 import type { Vocabulary } from '../../types/vocabulary';
-import { separateTags, getPredefinedTag, matchPartOfSpeechToTag } from '../../constants/predefinedTags';
+import { separateTags, getPredefinedTag } from '../../constants/predefinedTags';
 import { useSpeech } from '../../hooks/useSpeech';
 
 /**
@@ -104,14 +104,8 @@ export const VocabCard = ({
   const hasSenses = senses && senses.length > 0;
   const hasExpandableContent = hasExamples || hasCustomTags || definition || hasForms || hasExtra || hasSenses;
 
-  // Check if partOfSpeech is redundant with selected categories
-  // e.g., if partOfSpeech is "idiom" and Idiom category is selected, don't show partOfSpeech
-  const showPartOfSpeech = useMemo(() => {
-    if (!partOfSpeech) return false;
-    const matchedTag = matchPartOfSpeechToTag(partOfSpeech);
-    // Show partOfSpeech only if it doesn't match any of the selected predefined tags
-    return !matchedTag || !predefinedTags.includes(matchedTag);
-  }, [partOfSpeech, predefinedTags]);
+  // Always show part of speech when it exists
+  const showPartOfSpeech = !!partOfSpeech;
 
   /**
    * Toggle expanded state
@@ -452,13 +446,17 @@ export const VocabCard = ({
               <div className="flex flex-wrap gap-2">
                 {Object.entries(forms!).map(([key, value]) => (
                   value && (
-                    <span
+                    <button
                       key={key}
-                      className="inline-flex items-center px-2 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-sm"
+                      onClick={() => isSupported && speak(value, language)}
+                      className={`inline-flex items-center px-2 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-sm transition-colors ${
+                        isSupported ? 'cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-900/50' : ''
+                      }`}
+                      aria-label={`${formatFormLabel(key)}: ${value}. Click to hear pronunciation`}
                     >
                       <span className="font-medium">{formatFormLabel(key)}:</span>
                       <span className="ml-1">{value}</span>
-                    </span>
+                    </button>
                   )
                 ))}
               </div>
@@ -538,13 +536,17 @@ export const VocabCard = ({
                       <div className="flex flex-wrap gap-1.5 mb-2">
                         {Object.entries(sense.forms).map(([key, value]) => (
                           value && (
-                            <span
+                            <button
                               key={key}
-                              className="inline-flex items-center px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-xs"
+                              onClick={() => isSupported && speak(value, language)}
+                              className={`inline-flex items-center px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-xs transition-colors ${
+                                isSupported ? 'cursor-pointer hover:bg-indigo-200 dark:hover:bg-indigo-900/50' : ''
+                              }`}
+                              aria-label={`${formatFormLabel(key)}: ${value}. Click to hear pronunciation`}
                             >
                               <span className="font-medium">{formatFormLabel(key)}:</span>
                               <span className="ml-1">{value}</span>
-                            </span>
+                            </button>
                           )
                         ))}
                       </div>

@@ -3,6 +3,7 @@ import {
   useRef,
   useCallback,
   useId,
+  useEffect,
   KeyboardEvent,
   FocusEvent,
   InputHTMLAttributes,
@@ -46,6 +47,8 @@ export interface TagInputProps
   onBlur?: (e: FocusEvent<HTMLInputElement>) => void;
   /** Callback when input gains focus */
   onFocus?: (e: FocusEvent<HTMLInputElement>) => void;
+  /** Available tag suggestions for autocomplete */
+  suggestions?: string[];
 }
 
 /**
@@ -129,10 +132,14 @@ export const TagInput = ({
   onBlur,
   onFocus,
   id: providedId,
+  suggestions = [],
   ...props
 }: TagInputProps) => {
   const [inputValue, setInputValue] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
   const generatedId = useId();
   const id = providedId || generatedId;
   const errorId = `${id}-error`;
@@ -140,6 +147,18 @@ export const TagInput = ({
 
   const hasError = Boolean(error);
   const isMaxReached = maxTags !== undefined && tags.length >= maxTags;
+
+  // Filter suggestions based on input and exclude already selected tags
+  const filteredSuggestions = suggestions.filter(
+    (suggestion) =>
+      !tags.includes(suggestion.toLowerCase()) &&
+      suggestion.toLowerCase().includes(inputValue.toLowerCase())
+  );
+
+  // Reset selected index when filtered suggestions change
+  useEffect(() => {
+    setSelectedSuggestionIndex(-1);
+  }, [inputValue]);
 
   /**
    * Add a new tag if it's valid and not a duplicate
@@ -181,11 +200,57 @@ export const TagInput = ({
   );
 
   /**
+   * Select a suggestion and add it as a tag
+   */
+  const selectSuggestion = useCallback(
+    (suggestion: string) => {
+      if (addTag(suggestion)) {
+        setInputValue("");
+        setShowSuggestions(false);
+        setSelectedSuggestionIndex(-1);
+        inputRef.current?.focus();
+      }
+    },
+    [addTag]
+  );
+
+  /**
    * Handle keyboard events for adding/removing tags
    */
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLInputElement>) => {
       const value = inputValue;
+
+      // Navigate suggestions with arrow keys
+      if (showSuggestions && filteredSuggestions.length > 0) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setSelectedSuggestionIndex((prev) =>
+            prev < filteredSuggestions.length - 1 ? prev + 1 : 0
+          );
+          return;
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setSelectedSuggestionIndex((prev) =>
+            prev > 0 ? prev - 1 : filteredSuggestions.length - 1
+          );
+          return;
+        }
+        // Select suggestion on Enter if one is highlighted
+        if (e.key === "Enter" && selectedSuggestionIndex >= 0) {
+          e.preventDefault();
+          selectSuggestion(filteredSuggestions[selectedSuggestionIndex]!);
+          return;
+        }
+        // Close suggestions on Escape
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setShowSuggestions(false);
+          setSelectedSuggestionIndex(-1);
+          return;
+        }
+      }
 
       // Add tag on Enter
       if (e.key === "Enter") {
@@ -202,7 +267,7 @@ export const TagInput = ({
         return;
       }
     },
-    [inputValue, addTag, removeTag, tags.length]
+    [inputValue, addTag, removeTag, tags.length, showSuggestions, filteredSuggestions, selectedSuggestionIndex, selectSuggestion]
   );
 
   /**
@@ -217,6 +282,7 @@ export const TagInput = ({
         const tagValue = value.slice(0, -1);
         if (addTag(tagValue)) {
           setInputValue("");
+          setShowSuggestions(false);
         } else {
           setInputValue(tagValue);
         }
@@ -224,8 +290,38 @@ export const TagInput = ({
       }
 
       setInputValue(value);
+      // Show suggestions when typing and there are matches
+      setShowSuggestions(value.length > 0 && suggestions.length > 0);
     },
-    [addTag]
+    [addTag, suggestions.length]
+  );
+
+  /**
+   * Handle input focus - show suggestions if input has value
+   */
+  const handleInputFocus = useCallback(
+    (e: FocusEvent<HTMLInputElement>) => {
+      if (inputValue.length > 0 && suggestions.length > 0) {
+        setShowSuggestions(true);
+      }
+      onFocus?.(e);
+    },
+    [inputValue, suggestions.length, onFocus]
+  );
+
+  /**
+   * Handle input blur - hide suggestions after a delay (to allow click)
+   */
+  const handleInputBlur = useCallback(
+    (e: FocusEvent<HTMLInputElement>) => {
+      // Delay hiding to allow clicking on suggestions
+      setTimeout(() => {
+        setShowSuggestions(false);
+        setSelectedSuggestionIndex(-1);
+      }, 200);
+      onBlur?.(e);
+    },
+    [onBlur]
   );
 
   /**
@@ -283,45 +379,76 @@ export const TagInput = ({
         </label>
       )}
 
-      {/* Tag Input Container */}
-      <div
-        className={containerClasses}
-        onClick={handleContainerClick}
-        role="group"
-        aria-label={label || "Tag input"}
-      >
-        {/* Existing Tags */}
-        {tags.map((tag, index) => (
-          <Tag
-            key={`${tag}-${index}`}
-            variant={tagVariant}
-            size={getTagSize(size)}
-            removable={!disabled}
-            onRemove={() => removeTag(index)}
-          >
-            {tag}
-          </Tag>
-        ))}
+      {/* Tag Input Container - wrapped in relative for dropdown positioning */}
+      <div className="relative">
+        <div
+          className={containerClasses}
+          onClick={handleContainerClick}
+          role="group"
+          aria-label={label || "Tag input"}
+        >
+          {/* Existing Tags */}
+          {tags.map((tag, index) => (
+            <Tag
+              key={`${tag}-${index}`}
+              variant={tagVariant}
+              size={getTagSize(size)}
+              removable={!disabled}
+              onRemove={() => removeTag(index)}
+            >
+              {tag}
+            </Tag>
+          ))}
 
-        {/* Input Field */}
-        <input
-          ref={inputRef}
-          id={id}
-          type="text"
-          value={inputValue}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          onBlur={onBlur}
-          onFocus={onFocus}
-          placeholder={isMaxReached ? "" : placeholder}
-          disabled={disabled || isMaxReached}
-          className={inputClasses}
-          aria-invalid={hasError || undefined}
-          aria-describedby={
-            hasError ? errorId : helperText ? helperId : undefined
-          }
-          {...props}
-        />
+          {/* Input Field */}
+          <input
+            ref={inputRef}
+            id={id}
+            type="text"
+            value={inputValue}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            onBlur={handleInputBlur}
+            onFocus={handleInputFocus}
+            placeholder={isMaxReached ? "" : placeholder}
+            disabled={disabled || isMaxReached}
+            className={inputClasses}
+            aria-invalid={hasError || undefined}
+            aria-describedby={
+              hasError ? errorId : helperText ? helperId : undefined
+            }
+            aria-autocomplete={suggestions.length > 0 ? "list" : undefined}
+            aria-expanded={showSuggestions && filteredSuggestions.length > 0}
+            {...props}
+          />
+        </div>
+
+        {/* Suggestions Dropdown */}
+        {showSuggestions && filteredSuggestions.length > 0 && (
+          <div
+            ref={suggestionsRef}
+            className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+            role="listbox"
+            aria-label="Tag suggestions"
+          >
+            {filteredSuggestions.map((suggestion, index) => (
+              <button
+                key={suggestion}
+                type="button"
+                onClick={() => selectSuggestion(suggestion)}
+                className={`w-full px-3 py-2 text-left text-sm transition-colors ${
+                  index === selectedSuggestionIndex
+                    ? "bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+                role="option"
+                aria-selected={index === selectedSuggestionIndex}
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Screen reader tag count */}
