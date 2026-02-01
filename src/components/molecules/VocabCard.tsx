@@ -75,7 +75,7 @@ export const VocabCard = ({
 }: VocabCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const { speak, isSpeaking, isSupported } = useSpeech();
+  const { speak, isSupported } = useSpeech();
 
   const {
     text,
@@ -246,7 +246,6 @@ export const VocabCard = ({
                 onClick={handleSpeak}
                 className="p-1 rounded text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:text-gray-400 dark:hover:text-blue-400 dark:hover:bg-blue-900/20 transition-colors"
                 aria-label="Read aloud"
-                disabled={isSpeaking}
               >
                 <Icon name="volume" size="sm" />
               </button>
@@ -338,7 +337,6 @@ export const VocabCard = ({
                 onClick={handleSpeak}
                 className="p-1 rounded text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:text-gray-400 dark:hover:text-blue-400 dark:hover:bg-blue-900/20 transition-colors"
                 aria-label="Read aloud"
-                disabled={isSpeaking}
               >
                 <Icon name="volume" size="sm" />
               </button>
@@ -383,7 +381,6 @@ export const VocabCard = ({
                           onClick={() => speak(value, language)}
                           className="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/20 transition-colors"
                           aria-label={`Read ${key} aloud`}
-                          disabled={isSpeaking}
                         >
                           <Icon name="volume" size="sm" />
                         </button>
@@ -410,7 +407,6 @@ export const VocabCard = ({
                     onClick={() => speak(description, language)}
                     className="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/20 transition-colors"
                     aria-label="Read notes aloud"
-                    disabled={isSpeaking}
                   >
                     <Icon name="volume" size="sm" />
                   </button>
@@ -434,7 +430,6 @@ export const VocabCard = ({
                     onClick={() => speak(definition, language)}
                     className="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/20 transition-colors"
                     aria-label="Read definition aloud"
-                    disabled={isSpeaking}
                   >
                     <Icon name="volume" size="sm" />
                   </button>
@@ -491,7 +486,6 @@ export const VocabCard = ({
                         onClick={() => speak(example, language)}
                         className="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/20 transition-colors flex-shrink-0"
                         aria-label={`Read example ${index + 1} aloud`}
-                        disabled={isSpeaking}
                       >
                         <Icon name="volume" size="sm" />
                       </button>

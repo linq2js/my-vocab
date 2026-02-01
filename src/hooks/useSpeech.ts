@@ -40,6 +40,7 @@ export const useSpeech = (): UseSpeechResult => {
 
   /**
    * Speak the given text in the specified language.
+   * Stops any current speech before starting new speech.
    * Sets isSpeaking to true while speech is active.
    */
   const speak = useCallback(async (text: string, languageCode: string): Promise<void> => {
@@ -48,6 +49,9 @@ export const useSpeech = (): UseSpeechResult => {
       return;
     }
 
+    // Stop any current speech first (this also resets state properly)
+    speechService.stop();
+    
     setIsSpeaking(true);
     try {
       await speechService.speak(text, languageCode);
