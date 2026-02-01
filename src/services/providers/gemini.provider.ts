@@ -60,6 +60,55 @@ function isStringRecord(obj: unknown): boolean {
 }
 
 /**
+ * Validates a single word sense object.
+ *
+ * @param sense - The sense object to validate
+ * @returns True if the sense has required fields with correct types
+ */
+function isValidWordSense(sense: unknown): boolean {
+  if (typeof sense !== 'object' || sense === null) {
+    return false;
+  }
+
+  const s = sense as Record<string, unknown>;
+
+  // Required fields: type and definition
+  if (typeof s.type !== 'string' || typeof s.definition !== 'string') {
+    return false;
+  }
+
+  // Optional: examples must be array of strings if present
+  if (s.examples !== undefined) {
+    if (!Array.isArray(s.examples) || !s.examples.every((ex) => typeof ex === 'string')) {
+      return false;
+    }
+  }
+
+  // Optional: forms must be string record if present
+  if (!isStringRecord(s.forms)) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Validates the senses array.
+ *
+ * @param senses - The senses array to validate
+ * @returns True if senses is a valid array of word senses (or undefined/empty)
+ */
+function isValidSensesArray(senses: unknown): boolean {
+  if (senses === undefined || senses === null) {
+    return true; // optional field
+  }
+  if (!Array.isArray(senses)) {
+    return false;
+  }
+  return senses.every(isValidWordSense);
+}
+
+/**
  * Validates that a parsed response has all required fields.
  *
  * @param data - The parsed response data
@@ -81,7 +130,8 @@ function isValidEnrichmentResponse(
     Array.isArray(response.examples) &&
     response.examples.every((ex) => typeof ex === 'string') &&
     isStringRecord(response.forms) &&
-    isStringRecord(response.extra)
+    isStringRecord(response.extra) &&
+    isValidSensesArray(response.senses)
   );
 }
 

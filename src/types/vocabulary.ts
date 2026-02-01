@@ -1,7 +1,7 @@
-import type { VocabularyForms, ExtraEnrichment } from './gpt';
+import type { VocabularyForms, ExtraEnrichment, WordSense } from './gpt';
 
 // Re-export types for convenience
-export type { VocabularyForms, ExtraEnrichment } from './gpt';
+export type { VocabularyForms, ExtraEnrichment, WordSense } from './gpt';
 
 /**
  * Represents a vocabulary entry in the application.
@@ -59,6 +59,9 @@ export interface Vocabulary {
   
   /** User-requested extra enrichment fields (synonyms, etymology, etc.) */
   extra?: ExtraEnrichment;
+  
+  /** Additional senses/meanings beyond the primary usage (e.g., when word is both noun and verb) */
+  senses?: WordSense[];
   
   /** Timestamp when the entry was created */
   createdAt: Date;

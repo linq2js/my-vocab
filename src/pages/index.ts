@@ -12,3 +12,4 @@
 export { HomePage } from './HomePage';
 export { AddVocabPage } from './AddVocabPage';
 export { SettingsPage } from './SettingsPage';
+export { PlayPage } from './PlayPage';

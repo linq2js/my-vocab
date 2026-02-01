@@ -95,6 +95,36 @@ export interface VocabularyForms {
 export type ExtraEnrichment = Record<string, string>;
 
 /**
+ * Represents an additional sense/meaning of a word.
+ * Used when a word has multiple parts of speech or distinct meanings
+ * beyond the primary/most common usage.
+ * 
+ * @example
+ * ```typescript
+ * // "run" as a noun (in addition to its primary verb meaning)
+ * const sense: WordSense = {
+ *   type: 'noun',
+ *   definition: 'An act or instance of running',
+ *   examples: ['I went for a run this morning.'],
+ *   forms: { plural: 'runs' },
+ * };
+ * ```
+ */
+export interface WordSense {
+  /** Part of speech for this sense (noun, verb, adjective, etc.) */
+  type: string;
+  
+  /** Dictionary definition for this specific sense */
+  definition: string;
+  
+  /** Example sentences demonstrating this sense */
+  examples?: string[];
+  
+  /** Grammatical forms specific to this sense */
+  forms?: VocabularyForms;
+}
+
+/**
  * Response structure from GPT enrichment API calls.
  * Contains linguistic information about a vocabulary entry.
  * 
@@ -119,21 +149,24 @@ export type ExtraEnrichment = Record<string, string>;
  * ```
  */
 export interface GptEnrichmentResponse {
-  /** Dictionary definition of the word/phrase */
+  /** Dictionary definition of the word/phrase (primary/most common usage) */
   definition: string;
   
   /** International Phonetic Alphabet pronunciation */
   ipa: string;
   
-  /** Part of speech or content type (noun, verb, idiom, etc.) */
+  /** Part of speech or content type (noun, verb, idiom, etc.) - primary usage */
   type: string;
   
-  /** Example sentences demonstrating usage */
+  /** Example sentences demonstrating usage (primary sense) */
   examples: string[];
   
-  /** Grammatical forms (conjugations, plural, comparative, etc.) */
+  /** Grammatical forms (conjugations, plural, comparative, etc.) - primary usage */
   forms?: VocabularyForms;
   
   /** User-requested extra enrichment fields (synonyms, etymology, etc.) */
   extra?: ExtraEnrichment;
+  
+  /** Additional senses/meanings beyond the primary usage (e.g., when word is both noun and verb) */
+  senses?: WordSense[];
 }

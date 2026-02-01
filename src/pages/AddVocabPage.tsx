@@ -93,6 +93,7 @@ export const AddVocabPage = (): React.ReactElement => {
           partOfSpeech: data.partOfSpeech,
           forms: data.forms,
           extra: data.extra,
+          senses: data.senses,
         };
 
         if (isEditMode && vocabularyToEdit) {

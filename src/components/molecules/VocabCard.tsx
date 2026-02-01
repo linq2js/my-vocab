@@ -88,6 +88,7 @@ export const VocabCard = ({
     language,
     forms,
     extra,
+    senses,
   } = vocabulary;
 
   // Separate predefined and custom tags
@@ -100,7 +101,8 @@ export const VocabCard = ({
   const hasCustomTags = customTags && customTags.length > 0;
   const hasForms = forms && Object.keys(forms).length > 0;
   const hasExtra = extra && Object.keys(extra).length > 0;
-  const hasExpandableContent = hasExamples || hasCustomTags || definition || hasForms || hasExtra;
+  const hasSenses = senses && senses.length > 0;
+  const hasExpandableContent = hasExamples || hasCustomTags || definition || hasForms || hasExtra || hasSenses;
 
   // Check if partOfSpeech is redundant with selected categories
   // e.g., if partOfSpeech is "idiom" and Idiom category is selected, don't show partOfSpeech
@@ -473,7 +475,7 @@ export const VocabCard = ({
                 {examples.map((example, index) => (
                   <li
                     key={index}
-                    className="flex items-start gap-2 text-base text-gray-600 dark:text-gray-400 pl-3 border-l-2 border-gray-200 dark:border-gray-600"
+                    className="flex items-start gap-2 text-base text-gray-600 dark:text-gray-400"
                   >
                     <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded-full flex-shrink-0 mt-0.5">
                       {index + 1}
@@ -493,6 +495,91 @@ export const VocabCard = ({
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {/* Additional Senses/Meanings */}
+          {hasSenses && (
+            <div data-testid="vocab-senses" className="border-t border-gray-200 dark:border-gray-600 pt-3 mt-3">
+              <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
+                Other Meanings
+              </h4>
+              <div className="space-y-4">
+                {senses.map((sense, senseIndex) => (
+                  <div 
+                    key={senseIndex} 
+                    className=""
+                  >
+                    {/* Sense type (part of speech) */}
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400 italic">
+                        {sense.type}
+                      </span>
+                    </div>
+                    
+                    {/* Sense definition */}
+                    <div className="flex items-start gap-1 mb-2">
+                      <p className="text-base text-gray-700 dark:text-gray-300 flex-1">
+                        <ClickableText language={language}>{sense.definition}</ClickableText>
+                      </p>
+                      {isSupported && (
+                        <button
+                          onClick={() => speak(sense.definition, language)}
+                          className="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/20 transition-colors flex-shrink-0"
+                          aria-label="Read definition aloud"
+                        >
+                          <Icon name="volume" size="sm" />
+                        </button>
+                      )}
+                    </div>
+                    
+                    {/* Sense forms */}
+                    {sense.forms && Object.keys(sense.forms).length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {Object.entries(sense.forms).map(([key, value]) => (
+                          value && (
+                            <span
+                              key={key}
+                              className="inline-flex items-center px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-xs"
+                            >
+                              <span className="font-medium">{formatFormLabel(key)}:</span>
+                              <span className="ml-1">{value}</span>
+                            </span>
+                          )
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Sense examples */}
+                    {sense.examples && sense.examples.length > 0 && (
+                      <ul className="space-y-2 mt-2">
+                        {sense.examples.map((ex, exIndex) => (
+                          <li 
+                            key={exIndex}
+                            className="flex items-start gap-2 text-base text-gray-600 dark:text-gray-400"
+                          >
+                            <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded-full flex-shrink-0 mt-0.5">
+                              {exIndex + 1}
+                            </span>
+                            <span className="flex-1">
+                              <ClickableText language={language}>{ex}</ClickableText>
+                            </span>
+                            {isSupported && (
+                              <button
+                                onClick={() => speak(ex, language)}
+                                className="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/20 transition-colors flex-shrink-0"
+                                aria-label={`Read example ${exIndex + 1} aloud`}
+                              >
+                                <Icon name="volume" size="sm" />
+                              </button>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

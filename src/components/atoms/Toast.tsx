@@ -46,13 +46,19 @@ export const Toast = ({
 
   if (!isVisible) return null;
 
+  const handleDismiss = () => {
+    setShow(false);
+    setTimeout(() => onDismiss?.(), 300);
+  };
+
   return (
     <div
+      onClick={handleDismiss}
       className={`
         fixed bottom-24 left-1/2 -translate-x-1/2 z-50
         max-w-sm w-[90%] px-4 py-3
         bg-gray-800 dark:bg-gray-700 text-white
-        rounded-lg shadow-lg
+        rounded-lg shadow-lg cursor-pointer
         flex items-start gap-3
         transition-all duration-300
         ${show ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}
@@ -61,16 +67,7 @@ export const Toast = ({
     >
       <Icon name="info" size="md" className="text-blue-400 flex-shrink-0 mt-0.5" />
       <p className="text-sm flex-1">{message}</p>
-      <button
-        onClick={() => {
-          setShow(false);
-          setTimeout(() => onDismiss?.(), 300);
-        }}
-        className="p-1 rounded hover:bg-gray-700 dark:hover:bg-gray-600 transition-colors flex-shrink-0"
-        aria-label="Dismiss"
-      >
-        <Icon name="close" size="sm" />
-      </button>
+      <Icon name="close" size="sm" className="flex-shrink-0 opacity-60" />
     </div>
   );
 };

@@ -208,5 +208,99 @@ describe('OpenAIProvider', () => {
         'Invalid response structure from OpenAI'
       );
     });
+
+    it('should handle response with senses array', async () => {
+      const responseWithSenses: GptEnrichmentResponse = {
+        definition: 'To move swiftly on foot',
+        ipa: '/rʌn/',
+        type: 'verb',
+        examples: ['She runs every morning.'],
+        senses: [
+          {
+            type: 'noun',
+            definition: 'An act of running',
+            examples: ['I went for a run.'],
+            forms: { plural: 'runs' },
+          },
+        ],
+      };
+
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify(responseWithSenses),
+              },
+            },
+          ],
+        }),
+      } as Response);
+
+      const result = await provider.enrich('run', 'en');
+
+      expect(result).toEqual(responseWithSenses);
+      expect(result.senses).toHaveLength(1);
+      expect(result.senses![0]!.type).toBe('noun');
+    });
+
+    it('should handle response with empty senses array', async () => {
+      const responseWithEmptySenses: GptEnrichmentResponse = {
+        definition: 'The occurrence of events by chance',
+        ipa: '/ˌserənˈdɪpɪti/',
+        type: 'noun',
+        examples: ['Finding that book was pure serendipity.'],
+        senses: [],
+      };
+
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify(responseWithEmptySenses),
+              },
+            },
+          ],
+        }),
+      } as Response);
+
+      const result = await provider.enrich('serendipity', 'en');
+
+      expect(result).toEqual(responseWithEmptySenses);
+      expect(result.senses).toEqual([]);
+    });
+
+    it('should throw error when senses array has invalid structure', async () => {
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  definition: 'To move swiftly',
+                  ipa: '/rʌn/',
+                  type: 'verb',
+                  examples: ['She runs.'],
+                  senses: [
+                    {
+                      // Missing required 'type' and 'definition'
+                      examples: ['Invalid sense'],
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        }),
+      } as Response);
+
+      await expect(provider.enrich('run', 'en')).rejects.toThrow(
+        'Invalid response structure from OpenAI'
+      );
+    });
   });
 });

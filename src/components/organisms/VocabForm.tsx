@@ -9,7 +9,7 @@ import { PREDEFINED_TAGS, separateTags, matchPartOfSpeechToTag } from '../../con
 import { gptService } from '../../services/gpt.service';
 import { settingsStore } from '../../stores/settings.store';
 import { useNetworkStatus, getNetworkErrorMessage } from '../../hooks';
-import type { Vocabulary, VocabularyForms, ExtraEnrichment } from '../../types/vocabulary';
+import type { Vocabulary, VocabularyForms, ExtraEnrichment, WordSense } from '../../types/vocabulary';
 
 /**
  * Form data structure for vocabulary creation/editing.
@@ -26,6 +26,7 @@ export interface VocabFormData {
   partOfSpeech?: string;
   forms?: VocabularyForms;
   extra?: ExtraEnrichment;
+  senses?: WordSense[];
 }
 
 /**
@@ -140,6 +141,7 @@ export const VocabForm = ({
   const [partOfSpeech, setPartOfSpeech] = useState(initialData?.partOfSpeech);
   const [forms, setForms] = useState<VocabularyForms | undefined>(initialData?.forms);
   const [extra, setExtra] = useState<ExtraEnrichment | undefined>(initialData?.extra);
+  const [senses, setSenses] = useState<WordSense[] | undefined>(initialData?.senses);
 
   // Extra enrichment request (user input for custom fields)
   const [extraRequest, setExtraRequest] = useState('');
@@ -272,6 +274,7 @@ export const VocabForm = ({
         partOfSpeech,
         forms,
         extra,
+        senses,
       };
 
       // Preserve existing data in edit mode
@@ -294,6 +297,7 @@ export const VocabForm = ({
       partOfSpeech,
       forms,
       extra,
+      senses,
       extraRequest,
       initialData,
       isEditMode,
@@ -392,6 +396,7 @@ export const VocabForm = ({
       setPartOfSpeech(enrichment.type);
       setForms(enrichment.forms);
       setExtra(enrichment.extra);
+      setSenses(enrichment.senses);
 
       // Auto-select category if user hasn't selected any and AI returned a matching type
       if (selectedPredefinedTags.length === 0 && enrichment.type) {
@@ -583,7 +588,7 @@ export const VocabForm = ({
         )}
 
         {/* Enrichment Results Preview */}
-        {(definition || ipa || partOfSpeech || (examples && examples.length > 0) || (forms && Object.keys(forms).length > 0) || (extra && Object.keys(extra).length > 0)) && (
+        {(definition || ipa || partOfSpeech || (examples && examples.length > 0) || (forms && Object.keys(forms).length > 0) || (extra && Object.keys(extra).length > 0) || (senses && senses.length > 0)) && (
           <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-2 text-sm">
             {/* Extra fields displayed FIRST (user-requested custom enrichment) */}
             {extra && Object.keys(extra).length > 0 && (
@@ -652,6 +657,32 @@ export const VocabForm = ({
                     <li key={index}>{example}</li>
                   ))}
                 </ul>
+              </div>
+            )}
+            {senses && senses.length > 0 && (
+              <div className="border-t border-gray-200 dark:border-gray-600 pt-2 mt-2">
+                <span className="font-medium text-gray-700 dark:text-gray-300">
+                  Other Meanings:
+                </span>
+                <div className="mt-2 space-y-2">
+                  {senses.map((sense, index) => (
+                    <div key={index} className="pl-3 border-l-2 border-indigo-200 dark:border-indigo-700">
+                      <p>
+                        <span className="font-medium text-indigo-600 dark:text-indigo-400 italic">
+                          {sense.type}:
+                        </span>{' '}
+                        <span className="text-gray-600 dark:text-gray-400">{sense.definition}</span>
+                      </p>
+                      {sense.examples && sense.examples.length > 0 && (
+                        <ul className="mt-1 list-disc list-inside text-gray-500 dark:text-gray-500 text-xs">
+                          {sense.examples.map((ex, exIndex) => (
+                            <li key={exIndex}>{ex}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>

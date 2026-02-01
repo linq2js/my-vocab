@@ -202,6 +202,7 @@ export function createVocabStore(options: VocabStoreOptions = {}): VocabStore {
       partOfSpeech: vocab.partOfSpeech,
       forms: vocab.forms,
       extra: vocab.extra,
+      senses: vocab.senses,
       createdAt: vocab.createdAt instanceof Date ? vocab.createdAt : now,
       updatedAt: vocab.updatedAt instanceof Date ? vocab.updatedAt : now,
     };

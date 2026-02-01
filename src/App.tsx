@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { HomePage, AddVocabPage, SettingsPage } from './pages';
+import { HomePage, AddVocabPage, SettingsPage, PlayPage } from './pages';
 import { OfflineIndicator } from './components/molecules';
 import { PWAPrompts } from './components/molecules/PWAPrompts';
 import { ReadAloudProvider } from './contexts/ReadAloudContext';
@@ -41,6 +41,7 @@ function App(): React.ReactElement {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/add" element={<AddVocabPage />} />
+          <Route path="/play" element={<PlayPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </ReadAloudProvider>

@@ -5,7 +5,7 @@ import { Icon } from '../atoms';
 /**
  * Navigation page identifiers
  */
-export type PageId = 'home' | 'add' | 'settings';
+export type PageId = 'home' | 'add' | 'play' | 'settings';
 
 /**
  * Navigation link configuration
@@ -14,7 +14,7 @@ interface NavLink {
   id: PageId;
   label: string;
   to: string;
-  icon: 'book' | 'plus' | 'settings';
+  icon: 'book' | 'plus' | 'play' | 'settings';
 }
 
 /**
@@ -33,6 +33,7 @@ export interface PageLayoutProps {
  */
 const navLinks: NavLink[] = [
   { id: 'home', label: 'Home', to: '/', icon: 'book' },
+  { id: 'play', label: 'Play', to: '/play', icon: 'play' },
   { id: 'settings', label: 'Settings', to: '/settings', icon: 'settings' },
 ];
 
@@ -43,6 +44,7 @@ const navLinks: NavLink[] = [
  */
 const getActivePageFromPath = (pathname: string): PageId => {
   if (pathname === '/add') return 'add';
+  if (pathname === '/play') return 'play';
   if (pathname === '/settings') return 'settings';
   return 'home';
 };
