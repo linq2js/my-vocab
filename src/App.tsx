@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { HomePage, AddVocabPage, SettingsPage } from './pages';
 import { OfflineIndicator } from './components/molecules';
 import { PWAPrompts } from './components/molecules/PWAPrompts';
+import { ReadAloudProvider } from './contexts/ReadAloudContext';
 import { settingsStore } from './stores/settings.store';
 import './App.css';
 
@@ -30,17 +31,19 @@ function App(): React.ReactElement {
 
   return (
     <BrowserRouter>
-      {/* Offline indicator banner */}
-      <OfflineIndicator />
-      
-      {/* PWA install and update prompts */}
-      <PWAPrompts />
-      
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/add" element={<AddVocabPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-      </Routes>
+      <ReadAloudProvider>
+        {/* Offline indicator banner */}
+        <OfflineIndicator />
+        
+        {/* PWA install and update prompts */}
+        <PWAPrompts />
+        
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/add" element={<AddVocabPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+        </Routes>
+      </ReadAloudProvider>
     </BrowserRouter>
   );
 }

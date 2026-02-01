@@ -41,4 +41,4 @@ You can use the `icon-placeholder.svg` as a base and generate PNG icons using:
 ## Current Status
 
 - [x] Placeholder SVG created
-- [ ] PNG icons generated (pending)
+- [x] PNG icons generated

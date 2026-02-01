@@ -2,6 +2,7 @@ import { HTMLAttributes, useState, useMemo } from 'react';
 import { Tag } from '../atoms/Tag';
 import { Button } from '../atoms/Button';
 import { Icon } from '../atoms/Icon';
+import { ClickableText } from '../atoms/ClickableText';
 import type { Vocabulary } from '../../types/vocabulary';
 import { separateTags, getPredefinedTag, matchPartOfSpeechToTag } from '../../constants/predefinedTags';
 import { useSpeech } from '../../hooks/useSpeech';
@@ -373,11 +374,23 @@ export const VocabCard = ({
               {Object.entries(extra!).map(([key, value]) => (
                 value && (
                   <div key={key} className="mb-2 last:mb-0">
-                    <h4 className="text-xs font-semibold text-purple-600 dark:text-purple-400 tracking-wide mb-1 capitalize">
-                      {key}
-                    </h4>
+                    <div className="flex items-center gap-1 mb-1">
+                      <h4 className="text-xs font-semibold text-purple-600 dark:text-purple-400 tracking-wide capitalize">
+                        {key}
+                      </h4>
+                      {isSupported && (
+                        <button
+                          onClick={() => speak(value, language)}
+                          className="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/20 transition-colors"
+                          aria-label={`Read ${key} aloud`}
+                          disabled={isSpeaking}
+                        >
+                          <Icon name="volume" size="sm" />
+                        </button>
+                      )}
+                    </div>
                     <p className="text-base text-gray-700 dark:text-gray-300">
-                      {value}
+                      <ClickableText language={language}>{value}</ClickableText>
                     </p>
                   </div>
                 )
@@ -388,11 +401,23 @@ export const VocabCard = ({
           {/* User Description (Notes) */}
           {description && (
             <div data-testid="vocab-description">
-              <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
-                Notes
-              </h4>
+              <div className="flex items-center gap-1 mb-1">
+                <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  Notes
+                </h4>
+                {isSupported && (
+                  <button
+                    onClick={() => speak(description, language)}
+                    className="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/20 transition-colors"
+                    aria-label="Read notes aloud"
+                    disabled={isSpeaking}
+                  >
+                    <Icon name="volume" size="sm" />
+                  </button>
+                )}
+              </div>
               <p className="text-base text-gray-700 dark:text-gray-300">
-                {description}
+                <ClickableText language={language}>{description}</ClickableText>
               </p>
             </div>
           )}
@@ -400,11 +425,23 @@ export const VocabCard = ({
           {/* AI Definition */}
           {definition && (
             <div data-testid="vocab-definition">
-              <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
-                Definition
-              </h4>
+              <div className="flex items-center gap-1 mb-1">
+                <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  Definition
+                </h4>
+                {isSupported && (
+                  <button
+                    onClick={() => speak(definition, language)}
+                    className="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/20 transition-colors"
+                    aria-label="Read definition aloud"
+                    disabled={isSpeaking}
+                  >
+                    <Icon name="volume" size="sm" />
+                  </button>
+                )}
+              </div>
               <p className="text-base text-gray-700 dark:text-gray-300">
-                {definition}
+                <ClickableText language={language}>{definition}</ClickableText>
               </p>
             </div>
           )}
@@ -446,7 +483,19 @@ export const VocabCard = ({
                     <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded-full flex-shrink-0 mt-0.5">
                       {index + 1}
                     </span>
-                    <span>{example}</span>
+                    <span className="flex-1">
+                      <ClickableText language={language}>{example}</ClickableText>
+                    </span>
+                    {isSupported && (
+                      <button
+                        onClick={() => speak(example, language)}
+                        className="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/20 transition-colors flex-shrink-0"
+                        aria-label={`Read example ${index + 1} aloud`}
+                        disabled={isSpeaking}
+                      >
+                        <Icon name="volume" size="sm" />
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>

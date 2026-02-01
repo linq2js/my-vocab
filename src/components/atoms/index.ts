@@ -15,3 +15,8 @@ export type { IconProps, IconName, IconSize, IconColor } from './Icon';
 
 export { Spinner } from './Spinner';
 export type { SpinnerProps, SpinnerSize, SpinnerColor } from './Spinner';
+
+export { ClickableText } from './ClickableText';
+
+export { Toast } from './Toast';
+export type { ToastProps } from './Toast';

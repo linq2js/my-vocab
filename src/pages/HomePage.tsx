@@ -31,8 +31,11 @@ import { ContentTypeFilter } from '../components/molecules/ContentTypeFilter';
 import { FilterPanel } from '../components/molecules/FilterPanel';
 import { FloatingActionButton } from '../components/molecules/FloatingActionButton';
 import { VocabList } from '../components/organisms/VocabList';
+import { Icon } from '../components/atoms/Icon';
+import { Toast } from '../components/atoms/Toast';
 import { vocabStore } from '../stores/vocab.store';
 import { uiStore } from '../stores/ui.store';
+import { useReadAloud } from '../contexts/ReadAloudContext';
 import type { Vocabulary } from '../types/vocabulary';
 
 /**
@@ -42,6 +45,7 @@ import type { Vocabulary } from '../types/vocabulary';
  */
 export const HomePage = (): React.ReactElement => {
   const navigate = useNavigate();
+  const { isReadAloudMode, toggleReadAloudMode, exitReadAloudMode } = useReadAloud();
 
   // Get reactive state from stores
   const allVocabularies = useSelector(vocabStore.items$);
@@ -50,11 +54,29 @@ export const HomePage = (): React.ReactElement => {
 
   // Local state for part of speech filter (not in uiStore)
   const [partOfSpeech, setPartOfSpeech] = useState<string | null>(null);
+  
+  // Toast state for read-aloud mode
+  const [showReadAloudToast, setShowReadAloudToast] = useState(false);
 
   // Initialize vocab store on mount (fire and forget - UI shows defaults immediately)
   useEffect(() => {
     vocabStore.init().catch(console.error);
   }, []);
+
+  // Exit read-aloud mode when navigating away
+  const originalNavigate = navigate;
+  const navigateWithExitReadAloud = useCallback((to: string) => {
+    exitReadAloudMode();
+    originalNavigate(to);
+  }, [originalNavigate, exitReadAloudMode]);
+
+  // Handle read-aloud mode toggle with toast
+  const handleToggleReadAloud = useCallback(() => {
+    if (!isReadAloudMode) {
+      setShowReadAloudToast(true);
+    }
+    toggleReadAloudMode();
+  }, [isReadAloudMode, toggleReadAloudMode]);
 
   /**
    * Filter vocabularies based on search query and filters.
@@ -94,23 +116,23 @@ export const HomePage = (): React.ReactElement => {
    * Handle FAB click - navigate to add page.
    */
   const handleFABClick = useCallback((): void => {
-    navigate('/add');
-  }, [navigate]);
+    navigateWithExitReadAloud('/add');
+  }, [navigateWithExitReadAloud]);
 
   /**
    * Handle "Add as" click from empty search results.
    * Navigates to add page with pre-filled text from search query.
    */
   const handleAddAs = useCallback((_category: string, text: string): void => {
-    navigate(`/add?text=${encodeURIComponent(text)}`);
-  }, [navigate]);
+    navigateWithExitReadAloud(`/add?text=${encodeURIComponent(text)}`);
+  }, [navigateWithExitReadAloud]);
 
   /**
    * Handle edit vocabulary action - navigate to edit page.
    */
   const handleEditVocabulary = useCallback((vocabulary: Vocabulary): void => {
-    navigate(`/add?edit=${vocabulary.id}`);
-  }, [navigate]);
+    navigateWithExitReadAloud(`/add?edit=${vocabulary.id}`);
+  }, [navigateWithExitReadAloud]);
 
   /**
    * Handle delete vocabulary action.
@@ -136,7 +158,7 @@ export const HomePage = (): React.ReactElement => {
 
   return (
     <PageLayout>
-      <div className="space-y-4">
+      <div className="space-y-4 pb-20">
         {/* Search Bar */}
         <SearchBar />
 
@@ -150,6 +172,19 @@ export const HomePage = (): React.ReactElement => {
           onPartOfSpeechChange={handlePartOfSpeechChange}
           onReset={handleFilterReset}
         />
+
+        {/* Entry Count */}
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          {hasActiveFilters ? (
+            <span>
+              Showing <span className="font-medium text-gray-700 dark:text-gray-300">{filteredVocabularies.length}</span> of {allVocabularies.length} entries
+            </span>
+          ) : (
+            <span>
+              <span className="font-medium text-gray-700 dark:text-gray-300">{allVocabularies.length}</span> {allVocabularies.length === 1 ? 'entry' : 'entries'}
+            </span>
+          )}
+        </div>
 
         {/* Vocabulary List */}
         <VocabList
@@ -168,8 +203,38 @@ export const HomePage = (): React.ReactElement => {
         />
       </div>
 
-      {/* Floating Action Button */}
-      <FloatingActionButton onClick={handleFABClick} />
+      {/* Read Aloud Toast */}
+      <Toast
+        message="Read aloud mode enabled! Expand any entry and tap on a word to hear its pronunciation."
+        isVisible={showReadAloudToast}
+        onDismiss={() => setShowReadAloudToast(false)}
+        duration={5000}
+      />
+
+      {/* Floating Action Buttons */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-row items-center gap-3">
+        {/* Read Aloud Mode Toggle */}
+        <button
+          type="button"
+          onClick={handleToggleReadAloud}
+          className={`
+            w-12 h-12 rounded-full
+            ${isReadAloudMode 
+              ? 'bg-green-600 hover:bg-green-700 ring-2 ring-green-400 ring-offset-2 ring-offset-gray-900' 
+              : 'bg-gray-600 hover:bg-gray-700'}
+            text-white shadow-lg
+            flex items-center justify-center
+            transition-all duration-200
+          `}
+          aria-label={isReadAloudMode ? 'Exit read aloud mode' : 'Enter read aloud mode'}
+          title={isReadAloudMode ? 'Click to exit read aloud mode' : 'Click to enable read aloud mode - tap any word to hear it'}
+        >
+          <Icon name="volume" size="md" />
+        </button>
+        
+        {/* Add Button */}
+        <FloatingActionButton onClick={handleFABClick} />
+      </div>
     </PageLayout>
   );
 };
