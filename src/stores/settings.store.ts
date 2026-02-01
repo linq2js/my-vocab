@@ -1,5 +1,5 @@
 /**
- * Settings Store for MyVocab PWA
+ * Settings Store for MyVocab
  *
  * Reactive state management for application settings using atomirx patterns.
  * Provides methods to manage GPT providers, theme, and language preferences
@@ -30,15 +30,22 @@
  * ```
  */
 
-import { atom } from 'atomirx';
-import type { AppSettings, Theme, ExtraEnrichmentPrefs } from '../types/settings';
-import { DEFAULT_APP_SETTINGS } from '../types/settings';
-import type { GptProvider, GptProviderId } from '../types/gpt';
+import { atom } from "atomirx";
+import type {
+  AppSettings,
+  Theme,
+  ExtraEnrichmentPrefs,
+} from "../types/settings";
+import { DEFAULT_APP_SETTINGS } from "../types/settings";
+import type { GptProvider, GptProviderId } from "../types/gpt";
 import {
   settingsStorageService,
   type SettingsStorageService,
-} from '../services/settings-storage.service';
-import { getCombinedEnrichment, getPredefinedTag } from '../constants/predefinedTags';
+} from "../services/settings-storage.service";
+import {
+  getCombinedEnrichment,
+  getPredefinedTag,
+} from "../constants/predefinedTags";
 
 /**
  * Configuration options for the settings store.
@@ -73,7 +80,7 @@ export interface SettingsStore {
    */
   updateProvider: (
     providerId: GptProviderId,
-    updates: Partial<Omit<GptProvider, 'id' | 'name'>>
+    updates: Partial<Omit<GptProvider, "id" | "name">>
   ) => Promise<void>;
 
   /**
@@ -199,9 +206,12 @@ export function createSettingsStore(
   const storage = options.storage ?? settingsStorageService();
 
   // Reactive atom for settings - initialize with defaults
-  const settings$ = atom<AppSettings>({ ...DEFAULT_APP_SETTINGS }, {
-    meta: { key: 'settings.app' },
-  });
+  const settings$ = atom<AppSettings>(
+    { ...DEFAULT_APP_SETTINGS },
+    {
+      meta: { key: "settings.app" },
+    }
+  );
 
   // Track initialization state
   let initialized = false;
@@ -232,7 +242,7 @@ export function createSettingsStore(
   const persistSettings = async (): Promise<void> => {
     // Don't persist if not initialized yet - prevents overwriting during hot reload
     if (!initialized) {
-      console.warn('[SettingsStore] Skipping persist - not initialized yet');
+      console.warn("[SettingsStore] Skipping persist - not initialized yet");
       return;
     }
     const currentSettings = settings$.get();
@@ -244,7 +254,7 @@ export function createSettingsStore(
    */
   const updateProvider = async (
     providerId: GptProviderId,
-    updates: Partial<Omit<GptProvider, 'id' | 'name'>>
+    updates: Partial<Omit<GptProvider, "id" | "name">>
   ): Promise<void> => {
     settings$.set((prev) => ({
       ...prev,
@@ -259,7 +269,9 @@ export function createSettingsStore(
   /**
    * Sets the active GPT provider.
    */
-  const setActiveProvider = async (providerId: GptProviderId): Promise<void> => {
+  const setActiveProvider = async (
+    providerId: GptProviderId
+  ): Promise<void> => {
     settings$.set((prev) => ({
       ...prev,
       activeProviderId: providerId,
@@ -305,7 +317,9 @@ export function createSettingsStore(
   /**
    * Gets a GPT provider by ID.
    */
-  const getProviderById = (providerId: GptProviderId): GptProvider | undefined => {
+  const getProviderById = (
+    providerId: GptProviderId
+  ): GptProvider | undefined => {
     return settings$.get().providers.find((p) => p.id === providerId);
   };
 
@@ -323,7 +337,7 @@ export function createSettingsStore(
    * Use getExtraEnrichmentPlaceholder for default suggestions.
    */
   const getExtraEnrichment = (tagId: string): string => {
-    return settings$.get().extraEnrichment[tagId] ?? '';
+    return settings$.get().extraEnrichment[tagId] ?? "";
   };
 
   /**
@@ -332,7 +346,7 @@ export function createSettingsStore(
    */
   const getExtraEnrichmentPlaceholder = (tagId: string): string => {
     const tag = getPredefinedTag(tagId);
-    return tag?.enrichment ?? '';
+    return tag?.enrichment ?? "";
   };
 
   /**
@@ -374,13 +388,20 @@ export function createSettingsStore(
    */
   const getLastUsedFormValues = (forLanguage?: string) => {
     const current = settings$.get();
-    const lang = forLanguage || current.lastUsedLanguage || current.defaultLanguage || 'en';
+    const lang =
+      forLanguage ||
+      current.lastUsedLanguage ||
+      current.defaultLanguage ||
+      "en";
     const extraEnrichmentMap = current.lastUsedExtraEnrichment || {};
-    
+
     return {
-      language: current.lastUsedLanguage || current.defaultLanguage || 'en',
+      language: current.lastUsedLanguage || current.defaultLanguage || "en",
       categories: current.lastUsedCategories || [],
-      extraEnrichment: (typeof extraEnrichmentMap === 'object' ? extraEnrichmentMap[lang] : '') || '',
+      extraEnrichment:
+        (typeof extraEnrichmentMap === "object"
+          ? extraEnrichmentMap[lang]
+          : "") || "",
     };
   };
 
@@ -395,7 +416,7 @@ export function createSettingsStore(
   }): Promise<void> => {
     settings$.set((prev) => {
       const updates: Partial<AppSettings> = {};
-      
+
       if (values.language !== undefined) {
         updates.lastUsedLanguage = values.language;
       }
@@ -404,15 +425,16 @@ export function createSettingsStore(
       }
       if (values.extraEnrichment !== undefined) {
         // Ensure lastUsedExtraEnrichment is an object (handle migration from string)
-        const currentMap = typeof prev.lastUsedExtraEnrichment === 'object' 
-          ? prev.lastUsedExtraEnrichment 
-          : {};
+        const currentMap =
+          typeof prev.lastUsedExtraEnrichment === "object"
+            ? prev.lastUsedExtraEnrichment
+            : {};
         updates.lastUsedExtraEnrichment = {
           ...currentMap,
           [values.extraEnrichment.language]: values.extraEnrichment.text,
         };
       }
-      
+
       return { ...prev, ...updates };
     });
 

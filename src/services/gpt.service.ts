@@ -1,5 +1,5 @@
 /**
- * GPT Service for MyVocab PWA
+ * GPT Service for MyVocab
  *
  * Main service that orchestrates vocabulary enrichment using GPT providers.
  * Handles provider selection based on settings, caching of responses,
@@ -22,15 +22,15 @@
  * ```
  */
 
-import { cacheService, type CacheService } from './cache.service';
+import { cacheService, type CacheService } from "./cache.service";
 import {
   settingsStorageService,
   type SettingsStorageService,
-} from './settings-storage.service';
-import type { IGptProvider } from './gpt-provider.interface';
-import type { GptEnrichmentResponse, GptProviderId } from '../types/gpt';
-import { OpenAIProvider } from './providers/openai.provider';
-import { GeminiProvider } from './providers/gemini.provider';
+} from "./settings-storage.service";
+import type { IGptProvider } from "./gpt-provider.interface";
+import type { GptEnrichmentResponse, GptProviderId } from "../types/gpt";
+import { OpenAIProvider } from "./providers/openai.provider";
+import { GeminiProvider } from "./providers/gemini.provider";
 
 /** Default number of retry attempts for failed requests */
 const DEFAULT_MAX_RETRIES = 3;
@@ -41,7 +41,10 @@ const RETRY_DELAY_BASE_MS = 1000;
 /**
  * Factory function type for creating GPT providers.
  */
-export type ProviderFactory = (id: GptProviderId, apiKey: string) => IGptProvider;
+export type ProviderFactory = (
+  id: GptProviderId,
+  apiKey: string
+) => IGptProvider;
 
 /**
  * Configuration options for the GPT service.
@@ -86,7 +89,11 @@ export interface GptService {
    * @returns Promise resolving to enrichment data
    * @throws Error if no provider is configured, API key is missing, or all retries fail
    */
-  enrich: (text: string, language: string, extraFields?: string) => Promise<GptEnrichmentResponse>;
+  enrich: (
+    text: string,
+    language: string,
+    extraFields?: string
+  ) => Promise<GptEnrichmentResponse>;
 
   /**
    * Checks if the active provider has an API key configured.
@@ -117,11 +124,14 @@ export interface GptService {
  * @param apiKey - The API key for the provider
  * @returns The provider instance
  */
-function defaultProviderFactory(id: GptProviderId, apiKey: string): IGptProvider {
+function defaultProviderFactory(
+  id: GptProviderId,
+  apiKey: string
+): IGptProvider {
   switch (id) {
-    case 'openai':
+    case "openai":
       return new OpenAIProvider(apiKey);
-    case 'gemini':
+    case "gemini":
       return new GeminiProvider(apiKey);
     default:
       throw new Error(`Unknown provider: ${id}`);
@@ -174,7 +184,7 @@ export function gptService(options: GptServiceOptions = {}): GptService {
     const settings = await settingsStorage.getSettings();
 
     if (!settings.activeProviderId || settings.providers.length === 0) {
-      throw new Error('No active GPT provider configured');
+      throw new Error("No active GPT provider configured");
     }
 
     const providerConfig = settings.providers.find(
@@ -186,7 +196,9 @@ export function gptService(options: GptServiceOptions = {}): GptService {
     }
 
     if (!providerConfig.apiKey) {
-      throw new Error(`API key not configured for provider: ${providerConfig.id}`);
+      throw new Error(
+        `API key not configured for provider: ${providerConfig.id}`
+      );
     }
 
     return providerFactory(providerConfig.id, providerConfig.apiKey);
@@ -240,12 +252,12 @@ export function gptService(options: GptServiceOptions = {}): GptService {
     // Validate inputs
     const trimmedText = text.trim();
     if (!trimmedText) {
-      throw new Error('Text is required for enrichment');
+      throw new Error("Text is required for enrichment");
     }
 
     const trimmedLanguage = language.trim();
     if (!trimmedLanguage) {
-      throw new Error('Language is required for enrichment');
+      throw new Error("Language is required for enrichment");
     }
 
     const trimmedExtra = extraFields?.trim() || undefined;
@@ -261,7 +273,12 @@ export function gptService(options: GptServiceOptions = {}): GptService {
 
     // Get active provider and enrich
     const provider = await getActiveProvider();
-    const response = await enrichWithRetry(trimmedText, trimmedLanguage, provider, trimmedExtra);
+    const response = await enrichWithRetry(
+      trimmedText,
+      trimmedLanguage,
+      provider,
+      trimmedExtra
+    );
 
     // Cache the successful response (only standard enrichment)
     if (!trimmedExtra) {

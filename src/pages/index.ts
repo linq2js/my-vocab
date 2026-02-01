@@ -1,5 +1,5 @@
 /**
- * Pages barrel export for MyVocab PWA.
+ * Pages barrel export for MyVocab.
  *
  * Re-exports all page components for convenient importing.
  *
@@ -9,7 +9,7 @@
  * ```
  */
 
-export { HomePage } from './HomePage';
-export { AddVocabPage } from './AddVocabPage';
-export { SettingsPage } from './SettingsPage';
-export { PlayPage } from './PlayPage';
+export { HomePage } from "./HomePage";
+export { AddVocabPage } from "./AddVocabPage";
+export { SettingsPage } from "./SettingsPage";
+export { PlayPage } from "./PlayPage";

@@ -1,5 +1,5 @@
 /**
- * Settings Storage Service for MyVocab PWA
+ * Settings Storage Service for MyVocab
  *
  * Provides secure storage for application settings in localStorage.
  * API keys are encrypted using Web Crypto API (AES-GCM) before storage.
@@ -24,21 +24,21 @@
  * ```
  */
 
-import type { AppSettings } from '../types/settings';
-import { DEFAULT_APP_SETTINGS } from '../types/settings';
-import type { GptProviderId } from '../types/gpt';
+import type { AppSettings } from "../types/settings";
+import { DEFAULT_APP_SETTINGS } from "../types/settings";
+import type { GptProviderId } from "../types/gpt";
 import {
   generateEncryptionKey,
   importEncryptionKey,
   encrypt,
   decrypt,
-} from '../utils/encryption';
+} from "../utils/encryption";
 
 /** localStorage key for settings data */
-export const SETTINGS_STORAGE_KEY = 'myvocab_settings';
+export const SETTINGS_STORAGE_KEY = "myvocab_settings";
 
 /** localStorage key for encryption key */
-export const ENCRYPTION_KEY_STORAGE_KEY = 'myvocab_encryption_key';
+export const ENCRYPTION_KEY_STORAGE_KEY = "myvocab_encryption_key";
 
 /**
  * Internal structure for stored settings with encrypted API keys.
@@ -47,7 +47,7 @@ interface StoredSettings {
   /** Encrypted API keys mapped by provider ID */
   encryptedApiKeys: Record<string, string>;
   /** Non-sensitive settings stored as-is */
-  settings: Omit<AppSettings, 'providers'> & {
+  settings: Omit<AppSettings, "providers"> & {
     providers: Array<{
       id: GptProviderId;
       name: string;
@@ -80,7 +80,7 @@ export interface SettingsStorageService {
  */
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
-  let binary = '';
+  let binary = "";
   for (let i = 0; i < bytes.byteLength; i++) {
     binary += String.fromCharCode(bytes[i] as number);
   }
@@ -127,7 +127,7 @@ export function settingsStorageService(): SettingsStorageService {
     const newKey = await generateEncryptionKey();
 
     // Export and store the key
-    const exportedKey = await crypto.subtle.exportKey('raw', newKey);
+    const exportedKey = await crypto.subtle.exportKey("raw", newKey);
     const keyBase64 = arrayBufferToBase64(exportedKey);
     localStorage.setItem(ENCRYPTION_KEY_STORAGE_KEY, keyBase64);
 
@@ -156,14 +156,14 @@ export function settingsStorageService(): SettingsStorageService {
       const providers = await Promise.all(
         stored.settings.providers.map(async (provider) => {
           const encryptedKey = stored.encryptedApiKeys[provider.id];
-          let apiKey = '';
+          let apiKey = "";
 
           if (encryptedKey) {
             try {
               apiKey = await decrypt(encryptedKey, key);
             } catch {
               // If decryption fails, return empty key
-              apiKey = '';
+              apiKey = "";
             }
           }
 
@@ -180,12 +180,13 @@ export function settingsStorageService(): SettingsStorageService {
         theme: stored.settings.theme,
         defaultLanguage: stored.settings.defaultLanguage,
         extraEnrichment: stored.settings.extraEnrichment ?? {},
-        lastUsedLanguage: stored.settings.lastUsedLanguage ?? 'en',
+        lastUsedLanguage: stored.settings.lastUsedLanguage ?? "en",
         lastUsedCategories: stored.settings.lastUsedCategories ?? [],
         // Handle migration from string to object
-        lastUsedExtraEnrichment: typeof stored.settings.lastUsedExtraEnrichment === 'object' 
-          ? stored.settings.lastUsedExtraEnrichment 
-          : {},
+        lastUsedExtraEnrichment:
+          typeof stored.settings.lastUsedExtraEnrichment === "object"
+            ? stored.settings.lastUsedExtraEnrichment
+            : {},
       };
     } catch {
       // Return default settings on any error

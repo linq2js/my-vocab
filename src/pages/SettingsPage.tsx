@@ -1,5 +1,5 @@
 /**
- * SettingsPage component for MyVocab PWA.
+ * SettingsPage component for MyVocab.
  *
  * Settings page for managing API keys and provider selection.
  * Integrates with settingsStore for persistent settings management.
@@ -212,7 +212,9 @@ export const SettingsPage = (): React.ReactElement => {
       } catch (error) {
         // Handle network errors gracefully
         if (isNetworkError(error)) {
-          setTestError("Unable to connect. Please check your internet connection.");
+          setTestError(
+            "Unable to connect. Please check your internet connection."
+          );
         } else {
           setTestError("Test failed. Please try again.");
         }
@@ -262,7 +264,7 @@ export const SettingsPage = (): React.ReactElement => {
 
         {/* Network Error Message */}
         {testError && (
-          <div 
+          <div
             className="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
             role="alert"
           >
@@ -289,7 +291,8 @@ export const SettingsPage = (): React.ReactElement => {
             Data Management
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            Manage your vocabulary data. API keys and settings are stored separately.
+            Manage your vocabulary data. API keys and settings are stored
+            separately.
           </p>
 
           <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
@@ -299,7 +302,8 @@ export const SettingsPage = (): React.ReactElement => {
                   Vocabulary Data
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {vocabCount} {vocabCount === 1 ? "item" : "items"} (vocabularies, idioms, phrasal verbs, quotes)
+                  {vocabCount} {vocabCount === 1 ? "item" : "items"}{" "}
+                  (vocabularies, idioms, phrasal verbs, quotes)
                 </p>
               </div>
               <Button
@@ -318,7 +322,8 @@ export const SettingsPage = (): React.ReactElement => {
           {/* Storage Info */}
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
             <Icon name="info" size="sm" className="inline mr-1" />
-            Your API keys and settings are stored separately and will not be affected.
+            Your API keys and settings are stored separately and will not be
+            affected.
           </p>
         </div>
 
@@ -328,13 +333,17 @@ export const SettingsPage = (): React.ReactElement => {
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                  <Icon name="warning" size="md" className="text-red-600 dark:text-red-400" />
+                  <Icon
+                    name="warning"
+                    size="md"
+                    className="text-red-600 dark:text-red-400"
+                  />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                   Clear All Vocabulary Data?
                 </h3>
               </div>
-              
+
               <p className="text-gray-600 dark:text-gray-300 mb-2">
                 This will permanently delete:
               </p>

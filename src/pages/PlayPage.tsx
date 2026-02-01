@@ -1,5 +1,5 @@
 /**
- * PlayPage component for MyVocab PWA.
+ * PlayPage component for MyVocab.
  *
  * A fun exercise screen where users can practice their vocabulary by listening
  * to pronunciation and typing the word, definition, and examples.
@@ -12,21 +12,21 @@
  * - Only text field is validated (definition/example are optional practice)
  */
 
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { useSelector } from 'atomirx/react';
-import { PageLayout } from '../components/templates/PageLayout';
-import { Button } from '../components/atoms/Button';
-import { Input } from '../components/atoms/Input';
-import { Icon } from '../components/atoms/Icon';
-import { vocabStore } from '../stores/vocab.store';
-import { useSpeech } from '../hooks/useSpeech';
-import type { Vocabulary } from '../types/vocabulary';
+import React, { useState, useCallback, useMemo, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { useSelector } from "atomirx/react";
+import { PageLayout } from "../components/templates/PageLayout";
+import { Button } from "../components/atoms/Button";
+import { Input } from "../components/atoms/Input";
+import { Icon } from "../components/atoms/Icon";
+import { vocabStore } from "../stores/vocab.store";
+import { useSpeech } from "../hooks/useSpeech";
+import type { Vocabulary } from "../types/vocabulary";
 
 /**
  * Result state for a single question
  */
-type QuestionResult = 'correct' | 'wrong' | 'skipped' | null;
+type QuestionResult = "correct" | "wrong" | "skipped" | null;
 
 /**
  * Shuffles an array using Fisher-Yates algorithm
@@ -47,24 +47,24 @@ function shuffleArray<T>(array: T[]): T[] {
  */
 export const PlayPage = (): React.ReactElement => {
   const { speak, isSupported } = useSpeech();
-  
+
   // Get all vocabularies from store
   const allVocabularies = useSelector(vocabStore.items$);
-  
+
   // Shuffled list for the session
   const [shuffledItems, setShuffledItems] = useState<Vocabulary[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isStarted, setIsStarted] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
-  
+
   // Stats
   const [correctCount, setCorrectCount] = useState(0);
   const [wrongCount, setWrongCount] = useState(0);
-  
+
   // Current question state
-  const [textAnswer, setTextAnswer] = useState('');
-  const [definitionAnswer, setDefinitionAnswer] = useState('');
-  const [exampleAnswer, setExampleAnswer] = useState('');
+  const [textAnswer, setTextAnswer] = useState("");
+  const [definitionAnswer, setDefinitionAnswer] = useState("");
+  const [exampleAnswer, setExampleAnswer] = useState("");
   const [result, setResult] = useState<QuestionResult>(null);
   const [hasPlayed, setHasPlayed] = useState(false);
 
@@ -86,7 +86,7 @@ export const PlayPage = (): React.ReactElement => {
    */
   const handleStart = useCallback(() => {
     if (allVocabularies.length === 0) return;
-    
+
     const shuffled = shuffleArray(allVocabularies);
     setShuffledItems(shuffled);
     setCurrentIndex(0);
@@ -95,9 +95,9 @@ export const PlayPage = (): React.ReactElement => {
     setIsStarted(true);
     setIsFinished(false);
     setResult(null);
-    setTextAnswer('');
-    setDefinitionAnswer('');
-    setExampleAnswer('');
+    setTextAnswer("");
+    setDefinitionAnswer("");
+    setExampleAnswer("");
     setHasPlayed(false);
   }, [allVocabularies]);
 
@@ -122,11 +122,11 @@ export const PlayPage = (): React.ReactElement => {
     const correctText = currentItem.text.trim().toLowerCase();
 
     if (userText === correctText) {
-      setResult('correct');
-      setCorrectCount(prev => prev + 1);
+      setResult("correct");
+      setCorrectCount((prev) => prev + 1);
     } else {
-      setResult('wrong');
-      setWrongCount(prev => prev + 1);
+      setResult("wrong");
+      setWrongCount((prev) => prev + 1);
     }
   }, [currentItem, textAnswer, result]);
 
@@ -135,9 +135,9 @@ export const PlayPage = (): React.ReactElement => {
    */
   const handleSkip = useCallback(() => {
     if (!currentItem || result !== null) return;
-    
-    setResult('skipped');
-    setWrongCount(prev => prev + 1);
+
+    setResult("skipped");
+    setWrongCount((prev) => prev + 1);
   }, [currentItem, result]);
 
   /**
@@ -147,10 +147,10 @@ export const PlayPage = (): React.ReactElement => {
     if (currentIndex + 1 >= shuffledItems.length) {
       setIsFinished(true);
     } else {
-      setCurrentIndex(prev => prev + 1);
-      setTextAnswer('');
-      setDefinitionAnswer('');
-      setExampleAnswer('');
+      setCurrentIndex((prev) => prev + 1);
+      setTextAnswer("");
+      setDefinitionAnswer("");
+      setExampleAnswer("");
       setResult(null);
       setHasPlayed(false);
     }
@@ -225,7 +225,8 @@ export const PlayPage = (): React.ReactElement => {
   // Render finished screen
   if (isFinished) {
     const totalAnswered = correctCount + wrongCount;
-    const accuracy = totalAnswered > 0 ? Math.round((correctCount / totalAnswered) * 100) : 0;
+    const accuracy =
+      totalAnswered > 0 ? Math.round((correctCount / totalAnswered) * 100) : 0;
 
     return (
       <PageLayout>
@@ -263,13 +264,17 @@ export const PlayPage = (): React.ReactElement => {
                 <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                   {correctCount}
                 </div>
-                <div className="text-xs text-green-700 dark:text-green-300">Correct</div>
+                <div className="text-xs text-green-700 dark:text-green-300">
+                  Correct
+                </div>
               </div>
               <div className="bg-red-100 dark:bg-red-900/30 rounded-xl p-4">
                 <div className="text-2xl font-bold text-red-600 dark:text-red-400">
                   {wrongCount}
                 </div>
-                <div className="text-xs text-red-700 dark:text-red-300">Wrong</div>
+                <div className="text-xs text-red-700 dark:text-red-300">
+                  Wrong
+                </div>
               </div>
             </div>
 
@@ -278,7 +283,9 @@ export const PlayPage = (): React.ReactElement => {
               <div className="text-4xl font-bold text-purple-600 dark:text-purple-400 mb-1">
                 {accuracy}%
               </div>
-              <div className="text-sm text-purple-700 dark:text-purple-300">Accuracy</div>
+              <div className="text-sm text-purple-700 dark:text-purple-300">
+                Accuracy
+              </div>
             </div>
 
             <Button onClick={handleRestart} size="lg" className="w-full">
@@ -317,11 +324,16 @@ export const PlayPage = (): React.ReactElement => {
             className={`
               w-16 h-16 rounded-full flex items-center justify-center
               transition-all duration-200 transform hover:scale-105
-              ${hasPlayed 
-                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' 
-                : 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-lg'
+              ${
+                hasPlayed
+                  ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                  : "bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-lg"
               }
-              ${!isSupported ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+              ${
+                !isSupported
+                  ? "opacity-50 cursor-not-allowed"
+                  : "cursor-pointer"
+              }
             `}
             aria-label="Play pronunciation"
           >
@@ -364,13 +376,15 @@ export const PlayPage = (): React.ReactElement => {
                 placeholder="Type the word..."
                 disabled={result !== null}
                 fullWidth
-                className={result !== null ? (
-                  result === 'correct' 
-                    ? 'border-green-500 bg-green-50 dark:bg-green-900/20' 
-                    : 'border-red-500 bg-red-50 dark:bg-red-900/20'
-                ) : ''}
+                className={
+                  result !== null
+                    ? result === "correct"
+                      ? "border-green-500 bg-green-50 dark:bg-green-900/20"
+                      : "border-red-500 bg-red-50 dark:bg-red-900/20"
+                    : ""
+                }
               />
-              {result !== null && result !== 'correct' && currentItem && (
+              {result !== null && result !== "correct" && currentItem && (
                 <p className="mt-1 text-sm text-green-600 dark:text-green-400">
                   Correct answer: <strong>{currentItem.text}</strong>
                 </p>
@@ -406,11 +420,13 @@ export const PlayPage = (): React.ReactElement => {
                 disabled={result !== null}
                 fullWidth
               />
-              {result !== null && currentItem?.examples && currentItem.examples.length > 0 && (
-                <p className="mt-1 text-sm text-green-600 dark:text-green-400">
-                  {currentItem.examples[0]}
-                </p>
-              )}
+              {result !== null &&
+                currentItem?.examples &&
+                currentItem.examples.length > 0 && (
+                  <p className="mt-1 text-sm text-green-600 dark:text-green-400">
+                    {currentItem.examples[0]}
+                  </p>
+                )}
             </div>
           </div>
 
@@ -435,22 +451,22 @@ export const PlayPage = (): React.ReactElement => {
               </>
             ) : (
               <>
-                <div className={`
+                <div
+                  className={`
                   flex-1 py-2 px-4 rounded-lg text-center font-medium
-                  ${result === 'correct' 
-                    ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' 
-                    : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                  ${
+                    result === "correct"
+                      ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                      : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
                   }
-                `}>
-                  {result === 'correct' && 'Correct'}
-                  {result === 'wrong' && 'Incorrect'}
-                  {result === 'skipped' && 'Skipped'}
-                </div>
-                <Button
-                  onClick={handleNext}
-                  className="flex-1"
+                `}
                 >
-                  {currentIndex + 1 >= totalItems ? 'See Results' : 'Next'}
+                  {result === "correct" && "Correct"}
+                  {result === "wrong" && "Incorrect"}
+                  {result === "skipped" && "Skipped"}
+                </div>
+                <Button onClick={handleNext} className="flex-1">
+                  {currentIndex + 1 >= totalItems ? "See Results" : "Next"}
                 </Button>
               </>
             )}

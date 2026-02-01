@@ -1,5 +1,5 @@
 /**
- * AddVocabPage component for MyVocab PWA.
+ * AddVocabPage component for MyVocab.
  *
  * Page for adding new vocabulary entries with form validation and GPT enrichment.
  * Integrates with vocabStore for data persistence.
@@ -17,13 +17,16 @@
  * ```
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { PageLayout } from '../components/templates/PageLayout';
-import { VocabForm, type VocabFormData } from '../components/organisms/VocabForm';
-import { Icon } from '../components/atoms/Icon';
-import { vocabStore } from '../stores/vocab.store';
-import type { Vocabulary } from '../types/vocabulary';
+import React, { useState, useCallback, useMemo } from "react";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
+import { PageLayout } from "../components/templates/PageLayout";
+import {
+  VocabForm,
+  type VocabFormData,
+} from "../components/organisms/VocabForm";
+import { Icon } from "../components/atoms/Icon";
+import { vocabStore } from "../stores/vocab.store";
+import type { Vocabulary } from "../types/vocabulary";
 
 /**
  * AddVocabPage component - page for adding/editing vocabulary entries.
@@ -35,12 +38,12 @@ export const AddVocabPage = (): React.ReactElement => {
   const [searchParams] = useSearchParams();
 
   // Get text and edit ID from URL parameters
-  const textParam = searchParams.get('text') || '';
-  const editId = searchParams.get('edit');
-  
+  const textParam = searchParams.get("text") || "";
+  const editId = searchParams.get("edit");
+
   // Determine if we're in edit mode
   const isEditMode = Boolean(editId);
-  
+
   // Get vocabulary to edit (if in edit mode)
   const vocabularyToEdit = useMemo(() => {
     if (!editId) return null;
@@ -56,7 +59,7 @@ export const AddVocabPage = (): React.ReactElement => {
       return {
         text: textParam,
         tags: [],
-        language: 'en',
+        language: "en",
       } as unknown as Vocabulary;
     }
     return undefined;
@@ -69,7 +72,7 @@ export const AddVocabPage = (): React.ReactElement => {
    * Navigate back to home page.
    */
   const navigateHome = useCallback((): void => {
-    navigate('/');
+    navigate("/");
   }, [navigate]);
 
   /**
@@ -111,7 +114,10 @@ export const AddVocabPage = (): React.ReactElement => {
         navigateHome();
       } catch (error) {
         // Log error but don't throw - form will show error state
-        console.error(`Failed to ${isEditMode ? 'update' : 'add'} vocabulary:`, error);
+        console.error(
+          `Failed to ${isEditMode ? "update" : "add"} vocabulary:`,
+          error
+        );
       } finally {
         setIsSaving(false);
       }
@@ -141,21 +147,20 @@ export const AddVocabPage = (): React.ReactElement => {
               <Icon name="chevron-left" size="md" />
             </Link>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {isEditMode ? 'Edit' : 'Add'}
+              {isEditMode ? "Edit" : "Add"}
             </h2>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 ml-12">
             {isEditMode
-              ? 'Update this entry.'
-              : 'Add a new word, phrase, or expression to your collection.'
-            }
+              ? "Update this entry."
+              : "Add a new word, phrase, or expression to your collection."}
           </p>
         </div>
 
         {/* Form Card */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <VocabForm
-            key={editId || 'new'}
+            key={editId || "new"}
             initialData={initialData}
             onSubmit={handleSubmit}
             onCancel={handleCancel}

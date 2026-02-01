@@ -1,5 +1,5 @@
 /**
- * Vocabulary Store for MyVocab PWA
+ * Vocabulary Store for MyVocab
  *
  * Reactive state management for vocabulary entries using atomirx patterns.
  * Provides CRUD operations with IndexedDB persistence via the storage service.
@@ -37,10 +37,13 @@
  * ```
  */
 
-import { atom } from 'atomirx';
-import type { Vocabulary } from '../types/vocabulary';
-import { storageService, type StorageService } from '../services/storage.service';
-import { isPredefinedTag } from '../constants/predefinedTags';
+import { atom } from "atomirx";
+import type { Vocabulary } from "../types/vocabulary";
+import {
+  storageService,
+  type StorageService,
+} from "../services/storage.service";
+import { isPredefinedTag } from "../constants/predefinedTags";
 
 /**
  * Filter options for querying vocabulary items.
@@ -88,7 +91,9 @@ export interface VocabStore {
    * @param vocab - The vocabulary item to add (id and dates optional)
    * @returns Promise resolving when item is added and persisted
    */
-  add: (vocab: Partial<Vocabulary> & Pick<Vocabulary, 'text' | 'language' | 'tags'>) => Promise<void>;
+  add: (
+    vocab: Partial<Vocabulary> & Pick<Vocabulary, "text" | "language" | "tags">
+  ) => Promise<void>;
 
   /**
    * Updates an existing vocabulary item.
@@ -165,7 +170,7 @@ export function createVocabStore(options: VocabStoreOptions = {}): VocabStore {
   const storage = options.storage ?? storageService();
 
   // Reactive atom for vocabulary items
-  const items$ = atom<Vocabulary[]>([], { meta: { key: 'vocab.items' } });
+  const items$ = atom<Vocabulary[]>([], { meta: { key: "vocab.items" } });
 
   // Track initialization state
   let initialized = false;
@@ -187,7 +192,7 @@ export function createVocabStore(options: VocabStoreOptions = {}): VocabStore {
    * Adds a new vocabulary item.
    */
   const add = async (
-    vocab: Partial<Vocabulary> & Pick<Vocabulary, 'text' | 'language' | 'tags'>
+    vocab: Partial<Vocabulary> & Pick<Vocabulary, "text" | "language" | "tags">
   ): Promise<void> => {
     const now = new Date();
     const newVocab: Vocabulary = {
@@ -272,7 +277,9 @@ export function createVocabStore(options: VocabStoreOptions = {}): VocabStore {
     if (options.predefinedTags && options.predefinedTags.length > 0) {
       result = result.filter((v) => {
         const itemPredefinedTags = v.tags.filter(isPredefinedTag);
-        return options.predefinedTags!.some((tag) => itemPredefinedTags.includes(tag));
+        return options.predefinedTags!.some((tag) =>
+          itemPredefinedTags.includes(tag)
+        );
       });
     }
 

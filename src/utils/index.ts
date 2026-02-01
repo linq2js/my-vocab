@@ -1,5 +1,5 @@
 /**
- * Utility functions for MyVocab PWA.
+ * Utility functions for MyVocab.
  */
 
 export {
@@ -7,4 +7,4 @@ export {
   decrypt,
   generateEncryptionKey,
   importEncryptionKey,
-} from './encryption';
+} from "./encryption";

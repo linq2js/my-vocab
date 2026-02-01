@@ -1,6 +1,6 @@
 # PWA Icons
 
-This directory contains icons for the MyVocab PWA.
+This directory contains icons for the MyVocab.
 
 ## Required Icon Sizes
 
@@ -22,6 +22,7 @@ You can use the `icon-placeholder.svg` as a base and generate PNG icons using:
 1. **Online tools**: [RealFaviconGenerator](https://realfavicongenerator.net/) or [PWA Asset Generator](https://pwa-asset-generator.nicholasbraun.dev/)
 
 2. **CLI tools**:
+
    ```bash
    # Using ImageMagick
    for size in 72 96 128 144 152 192 384 512; do

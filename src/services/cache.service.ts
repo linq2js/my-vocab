@@ -1,5 +1,5 @@
 /**
- * GPT Cache Service for MyVocab PWA
+ * GPT Cache Service for MyVocab
  *
  * Provides a high-level caching interface for GPT enrichment responses.
  * Uses IndexedDB via the storage service for persistent caching.
@@ -25,8 +25,8 @@
  * ```
  */
 
-import { storageService, type StorageService } from './storage.service';
-import type { GptEnrichmentResponse } from '../types/gpt';
+import { storageService, type StorageService } from "./storage.service";
+import type { GptEnrichmentResponse } from "../types/gpt";
 
 /**
  * Cache service interface type.
@@ -39,7 +39,10 @@ export interface CacheService {
    * @param language - The language code (e.g., 'en', 'es')
    * @returns Promise resolving to the cached response or undefined if not found
    */
-  get: (word: string, language: string) => Promise<GptEnrichmentResponse | undefined>;
+  get: (
+    word: string,
+    language: string
+  ) => Promise<GptEnrichmentResponse | undefined>;
 
   /**
    * Caches a GPT enrichment response.
@@ -49,7 +52,11 @@ export interface CacheService {
    * @param response - The GPT enrichment response to cache
    * @returns Promise resolving when caching is complete
    */
-  set: (word: string, language: string, response: GptEnrichmentResponse) => Promise<void>;
+  set: (
+    word: string,
+    language: string,
+    response: GptEnrichmentResponse
+  ) => Promise<void>;
 
   /**
    * Checks if a cache entry exists for the given word and language.

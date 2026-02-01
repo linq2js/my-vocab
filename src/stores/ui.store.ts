@@ -1,5 +1,5 @@
 /**
- * UI Store for MyVocab PWA
+ * UI Store for MyVocab
  *
  * Reactive state management for UI concerns using atomirx patterns.
  * Manages search query, filters, and modal states for the application.
@@ -31,18 +31,18 @@
  * ```
  */
 
-import { atom } from 'atomirx';
+import { atom } from "atomirx";
 
 /**
  * Modal types available in the application.
  */
 export type ModalType =
-  | 'addVocab'
-  | 'editVocab'
-  | 'deleteVocab'
-  | 'settings'
-  | 'confirm'
-  | 'enrichment'
+  | "addVocab"
+  | "editVocab"
+  | "deleteVocab"
+  | "settings"
+  | "confirm"
+  | "enrichment"
   | null;
 
 /**
@@ -170,17 +170,23 @@ export interface UiStore {
  */
 export function createUiStore(): UiStore {
   // Reactive atoms for UI state
-  const searchQuery$ = atom<string>('', {
-    meta: { key: 'ui.searchQuery' },
+  const searchQuery$ = atom<string>("", {
+    meta: { key: "ui.searchQuery" },
   });
 
-  const filters$ = atom<UiFilters>({ ...DEFAULT_FILTERS }, {
-    meta: { key: 'ui.filters' },
-  });
+  const filters$ = atom<UiFilters>(
+    { ...DEFAULT_FILTERS },
+    {
+      meta: { key: "ui.filters" },
+    }
+  );
 
-  const modalState$ = atom<ModalState>({ ...DEFAULT_MODAL_STATE }, {
-    meta: { key: 'ui.modalState' },
-  });
+  const modalState$ = atom<ModalState>(
+    { ...DEFAULT_MODAL_STATE },
+    {
+      meta: { key: "ui.modalState" },
+    }
+  );
 
   /**
    * Sets the search query.
@@ -193,7 +199,7 @@ export function createUiStore(): UiStore {
    * Clears the search query.
    */
   const clearSearchQuery = (): void => {
-    searchQuery$.set('');
+    searchQuery$.set("");
   };
 
   /**
@@ -259,7 +265,7 @@ export function createUiStore(): UiStore {
    * Resets all UI state to defaults.
    */
   const reset = (): void => {
-    searchQuery$.set('');
+    searchQuery$.set("");
     filters$.set({ ...DEFAULT_FILTERS });
     modalState$.set({ ...DEFAULT_MODAL_STATE });
   };
