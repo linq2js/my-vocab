@@ -39,6 +39,9 @@ describe('gptService', () => {
     theme: 'system',
     defaultLanguage: 'en',
     extraEnrichment: {},
+    lastUsedLanguage: 'en',
+    lastUsedCategories: [],
+    lastUsedExtraEnrichment: '',
   };
 
   beforeEach(() => {

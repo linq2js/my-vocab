@@ -346,12 +346,21 @@ describe('Settings Store', () => {
       await store.init();
     });
 
-    it('should return default enrichment for content type with no saved preference', () => {
-      // When no custom value is set, returns the default for that content type
-      expect(store.getExtraEnrichment('vocabulary')).toBe('synonyms, antonyms, collocations');
-      expect(store.getExtraEnrichment('idiom')).toBe('origin, literal meaning, similar expressions');
-      expect(store.getExtraEnrichment('phrasal-verb')).toBe('synonyms, formal alternative, separable');
-      expect(store.getExtraEnrichment('quote')).toBe('author, context, interpretation');
+    it('should return empty string for content type with no saved preference', () => {
+      // When no custom value is set, returns empty string (not defaults)
+      // Defaults are provided by getExtraEnrichmentPlaceholder
+      expect(store.getExtraEnrichment('vocabulary')).toBe('');
+      expect(store.getExtraEnrichment('idiom')).toBe('');
+      expect(store.getExtraEnrichment('phrasal-verb')).toBe('');
+      expect(store.getExtraEnrichment('quote')).toBe('');
+    });
+
+    it('should return default suggestions from placeholder function', () => {
+      // Placeholder function returns default suggestions for each content type
+      expect(store.getExtraEnrichmentPlaceholder('vocabulary')).toBe('synonyms, antonyms, collocations');
+      expect(store.getExtraEnrichmentPlaceholder('idiom')).toBe('origin, literal meaning, similar expressions');
+      expect(store.getExtraEnrichmentPlaceholder('phrasal-verb')).toBe('synonyms, formal alternative, separable');
+      expect(store.getExtraEnrichmentPlaceholder('quote')).toBe('author, context, interpretation');
     });
 
     it('should set extra enrichment for a content type', async () => {
@@ -380,17 +389,16 @@ describe('Settings Store', () => {
       expect(store.getExtraEnrichment('vocabulary')).toBe('synonyms, etymology');
       expect(store.getExtraEnrichment('idiom')).toBe('origin, usage');
       expect(store.getExtraEnrichment('phrasal-verb')).toBe('formal alternatives');
-      // quote was not set, so returns default
-      expect(store.getExtraEnrichment('quote')).toBe('author, context, interpretation');
+      // quote was not set, so returns empty string (placeholder available separately)
+      expect(store.getExtraEnrichment('quote')).toBe('');
     });
 
-    it('should allow clearing a custom preference to use default', async () => {
+    it('should allow clearing a custom preference', async () => {
       // Set a custom value
       await store.setExtraEnrichment('vocabulary', 'my custom fields');
       expect(store.getExtraEnrichment('vocabulary')).toBe('my custom fields');
 
-      // Clear it by setting empty string - but note: empty string is still a custom value
-      // To truly clear, user would need to delete the key (not currently supported)
+      // Clear it by setting empty string
       await store.setExtraEnrichment('vocabulary', '');
       expect(store.getExtraEnrichment('vocabulary')).toBe('');
     });

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { setupDevtools } from 'atomirx/devtools';
 import App from './App.tsx';
 import './index.css';
+import { initPWA, setWaitingServiceWorker } from './hooks/usePWA';
 
 // Initialize atomirx devtools in development mode (must be before any atoms are created)
 if (import.meta.env.DEV) {
@@ -21,14 +22,20 @@ function registerServiceWorker(): void {
         .then((registration) => {
           console.log('[App] ServiceWorker registered:', registration.scope);
           
+          // Check if there's already a waiting worker
+          if (registration.waiting) {
+            setWaitingServiceWorker(registration.waiting);
+          }
+          
           // Handle updates
           registration.addEventListener('updatefound', () => {
             const newWorker = registration.installing;
             if (newWorker) {
               newWorker.addEventListener('statechange', () => {
                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  // New content is available, notify user if needed
-                  console.log('[App] New content available, refresh to update');
+                  // New content is available, notify user
+                  console.log('[App] New content available');
+                  setWaitingServiceWorker(newWorker);
                 }
               });
             }
@@ -40,6 +47,9 @@ function registerServiceWorker(): void {
     });
   }
 }
+
+// Initialize PWA event listeners (install prompt, etc.)
+initPWA();
 
 // Register service worker in production only
 if (import.meta.env.PROD) {

@@ -1,5 +1,4 @@
 import type { GptProvider, GptProviderId } from './gpt';
-import type { ContentType } from './vocabulary';
 
 /**
  * Theme options for the application UI.
@@ -10,8 +9,8 @@ import type { ContentType } from './vocabulary';
 export type Theme = 'light' | 'dark' | 'system';
 
 /**
- * Extra enrichment preferences per content type.
- * Each content type can have its own default extra fields request.
+ * Extra enrichment preferences per predefined tag.
+ * Each predefined tag can have custom extra fields request that overrides the default.
  * 
  * @example
  * ```typescript
@@ -19,11 +18,10 @@ export type Theme = 'light' | 'dark' | 'system';
  *   vocabulary: 'synonyms, antonyms, etymology',
  *   idiom: 'origin, similar expressions',
  *   'phrasal-verb': 'synonyms, formal alternatives',
- *   quote: 'author background, context',
  * };
  * ```
  */
-export type ExtraEnrichmentPrefs = Partial<Record<ContentType, string>>;
+export type ExtraEnrichmentPrefs = Record<string, string>;
 
 /**
  * Application settings configuration.
@@ -57,21 +55,22 @@ export interface AppSettings {
   
   /** Extra enrichment field preferences per content type */
   extraEnrichment: ExtraEnrichmentPrefs;
+  
+  /** Last used language when adding entries */
+  lastUsedLanguage: string;
+  
+  /** Last used predefined tag categories when adding entries */
+  lastUsedCategories: string[];
+  
+  /** Last used extra enrichment text when adding entries */
+  lastUsedExtraEnrichment: string;
 }
 
 /**
- * Default extra enrichment prompts for each content type.
- * These are used as suggestions when no custom value is set.
- * 
- * Base enrichment already includes: definition, IPA, type, examples, forms
- * These extras are in addition to those fields.
+ * Note: Default extra enrichment prompts are now defined in predefinedTags.ts.
+ * This constant is kept for backwards compatibility but defaults come from PREDEFINED_TAGS.
+ * Users can override per-tag enrichment which is stored in settings.extraEnrichment.
  */
-export const DEFAULT_EXTRA_ENRICHMENT: ExtraEnrichmentPrefs = {
-  'vocabulary': 'synonyms, antonyms, collocations',
-  'idiom': 'origin, literal meaning, similar expressions',
-  'phrasal-verb': 'synonyms, formal alternative, separable',
-  'quote': 'author, context, interpretation',
-};
 
 /**
  * Default application settings used for initialization.
@@ -85,4 +84,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   theme: 'system',
   defaultLanguage: 'en',
   extraEnrichment: {},
+  lastUsedLanguage: 'en',
+  lastUsedCategories: [],
+  lastUsedExtraEnrichment: '',
 };

@@ -1,16 +1,17 @@
 /**
- * ContentTypeFilter molecule component for filtering by content type.
+ * CategoryFilter molecule component for filtering by predefined tags (categories).
  *
- * Displays content type options as chips that can be selected.
+ * Displays predefined tag options as chips that can be selected.
  * Supports multiple selection with an "All" option that clears other selections.
+ * Includes a "No Category" option to filter entries without predefined tags.
  *
  * @example
  * ```tsx
  * // Basic usage (connected to uiStore)
- * <ContentTypeFilter />
+ * <CategoryFilter />
  *
  * // Disabled state
- * <ContentTypeFilter disabled />
+ * <CategoryFilter disabled />
  * ```
  */
 
@@ -18,38 +19,39 @@ import type { ReactElement } from 'react';
 import { useCallback } from 'react';
 import { useSelector } from 'atomirx/react';
 import { uiStore } from '../../stores/ui.store';
-import { ContentType, getContentTypeLabel, getContentTypeAbbr } from '../../constants/contentTypes';
-import type { ContentType as ContentTypeValue } from '../../types/vocabulary';
+import { PREDEFINED_TAGS, NO_PREDEFINED_TAG_FILTER } from '../../constants/predefinedTags';
 
 /**
- * Content type chip configuration.
+ * Category chip configuration.
  */
-interface ContentTypeChip {
+interface CategoryChip {
   /** Unique identifier */
-  id: 'all' | ContentTypeValue;
-  /** Full display label (for larger screens) */
+  id: string;
+  /** Full display label */
   label: string;
   /** Abbreviated label (for small screens) */
   abbr: string;
 }
 
 /**
- * Available content type chips.
- * "All" is a special option that clears other selections.
- * Shows abbreviations on mobile, full labels on larger screens.
+ * Available category chips.
+ * "All" is a special option that clears all selections.
+ * "No Category" filters entries without any predefined tags.
  */
-const CONTENT_TYPE_CHIPS: ContentTypeChip[] = [
+const CATEGORY_CHIPS: CategoryChip[] = [
   { id: 'all', label: 'All', abbr: 'All' },
-  { id: ContentType.VOCABULARY, label: getContentTypeLabel(ContentType.VOCABULARY), abbr: getContentTypeAbbr(ContentType.VOCABULARY) },
-  { id: ContentType.PHRASAL_VERB, label: getContentTypeLabel(ContentType.PHRASAL_VERB), abbr: getContentTypeAbbr(ContentType.PHRASAL_VERB) },
-  { id: ContentType.IDIOM, label: getContentTypeLabel(ContentType.IDIOM), abbr: getContentTypeAbbr(ContentType.IDIOM) },
-  { id: ContentType.QUOTE, label: getContentTypeLabel(ContentType.QUOTE), abbr: getContentTypeAbbr(ContentType.QUOTE) },
+  ...PREDEFINED_TAGS.map((tag) => ({
+    id: tag.id,
+    label: tag.label,
+    abbr: tag.abbr,
+  })),
+  { id: NO_PREDEFINED_TAG_FILTER, label: 'No Category', abbr: '∅' },
 ];
 
 /**
- * Props for the ContentTypeFilter component.
+ * Props for the CategoryFilter component.
  */
-export interface ContentTypeFilterProps {
+export interface CategoryFilterProps {
   /** Additional CSS classes */
   className?: string;
   /** Whether the filter is disabled */
@@ -57,83 +59,100 @@ export interface ContentTypeFilterProps {
 }
 
 /**
- * ContentTypeFilter molecule component.
+ * CategoryFilter molecule component (formerly ContentTypeFilter).
  *
  * Features:
- * - Chip-style buttons for each content type
+ * - Chip-style buttons for each predefined tag category
  * - Multiple selection support
  * - "All" chip that clears other selections
- * - Syncs with uiStore.filters$.contentTypes
+ * - "No Category" chip to find untagged entries
+ * - Syncs with uiStore.filters$.predefinedTags
  * - Full dark mode support
  *
  * @param props - Component props
- * @returns ContentTypeFilter component
+ * @returns CategoryFilter component
  */
 export const ContentTypeFilter = ({
   className = '',
   disabled = false,
-}: ContentTypeFilterProps): ReactElement => {
+}: CategoryFilterProps): ReactElement => {
   // Get current filters from store
   const filters = useSelector(uiStore.filters$);
-  const selectedTypes = filters.contentTypes;
+  const selectedTags = filters.predefinedTags;
+  const noPredefinedTag = filters.noPredefinedTag;
 
-  // Check if "All" is effectively selected (no specific types selected)
-  const isAllSelected = selectedTypes.length === 0;
+  // Check if "All" is effectively selected (no specific tags selected and no noPredefinedTag)
+  const isAllSelected = selectedTags.length === 0 && !noPredefinedTag;
 
   /**
    * Handle chip click.
    * - If "All" is clicked, clear all selections
-   * - If a type is clicked and already selected, remove it
-   * - If a type is clicked and not selected, add it
+   * - If "No Category" is clicked, toggle noPredefinedTag filter
+   * - If a tag is clicked and already selected, remove it
+   * - If a tag is clicked and not selected, add it
    */
   const handleChipClick = useCallback(
-    (chipId: 'all' | ContentTypeValue) => {
+    (chipId: string) => {
       if (disabled) return;
 
       if (chipId === 'all') {
         // Clear all selections (show all)
-        uiStore.setFilters({ contentTypes: [] });
+        uiStore.setFilters({ predefinedTags: [], noPredefinedTag: false });
+      } else if (chipId === NO_PREDEFINED_TAG_FILTER) {
+        // Toggle "No Category" filter
+        // When enabling, clear other predefined tag selections
+        if (!noPredefinedTag) {
+          uiStore.setFilters({ predefinedTags: [], noPredefinedTag: true });
+        } else {
+          uiStore.setFilters({ noPredefinedTag: false });
+        }
       } else {
-        const isSelected = selectedTypes.includes(chipId);
+        // Regular predefined tag
+        const isSelected = selectedTags.includes(chipId);
         if (isSelected) {
           // Remove from selection
-          const newTypes = selectedTypes.filter((t) => t !== chipId);
-          uiStore.setFilters({ contentTypes: newTypes });
+          const newTags = selectedTags.filter((t) => t !== chipId);
+          uiStore.setFilters({ predefinedTags: newTags });
         } else {
-          // Add to selection
-          uiStore.setFilters({ contentTypes: [...selectedTypes, chipId] });
+          // Add to selection, clear noPredefinedTag
+          uiStore.setFilters({ 
+            predefinedTags: [...selectedTags, chipId],
+            noPredefinedTag: false,
+          });
         }
       }
     },
-    [disabled, selectedTypes]
+    [disabled, selectedTags, noPredefinedTag]
   );
 
   /**
    * Check if a chip is selected.
    */
-  const isChipSelected = (chipId: 'all' | ContentTypeValue): boolean => {
+  const isChipSelected = (chipId: string): boolean => {
     if (chipId === 'all') {
       return isAllSelected;
     }
-    return selectedTypes.includes(chipId);
+    if (chipId === NO_PREDEFINED_TAG_FILTER) {
+      return noPredefinedTag;
+    }
+    return selectedTags.includes(chipId);
   };
 
   /**
    * Get chip CSS classes based on selection state.
-   * On small screens: pill buttons with full text, 2 per row
-   * On larger screens: inline pill-shaped buttons
    */
-  const getChipClasses = (chipId: 'all' | ContentTypeValue): string => {
+  const getChipClasses = (chipId: string): string => {
     const isSelected = isChipSelected(chipId);
 
     const baseClasses = [
-      'px-3 py-1.5',
+      'px-2.5 py-1',
       'flex items-center justify-center',
-      'text-sm font-medium',
+      'text-xs font-medium',
       'rounded-full',
       'border',
+      'whitespace-nowrap',
       'transition-all duration-200',
-      'focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500',
+      'focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500',
     ];
 
     const selectedClasses = [
@@ -159,10 +178,9 @@ export const ContentTypeFilter = ({
     ].join(' ');
   };
 
-  // Grid layout: 2 columns on small screens, flex wrap on larger screens
+  // Inline layout with wrapping
   const containerClasses = [
-    'grid grid-cols-2 gap-2',
-    'sm:flex sm:flex-wrap',
+    'flex flex-wrap gap-1.5',
     className,
   ]
     .filter(Boolean)
@@ -173,9 +191,9 @@ export const ContentTypeFilter = ({
       data-testid="content-type-filter"
       className={containerClasses}
       role="group"
-      aria-label="Filter by content type"
+      aria-label="Filter by category"
     >
-      {CONTENT_TYPE_CHIPS.map((chip) => (
+      {CATEGORY_CHIPS.map((chip) => (
         <button
           key={chip.id}
           type="button"
@@ -191,3 +209,6 @@ export const ContentTypeFilter = ({
     </div>
   );
 };
+
+// Also export as CategoryFilter for clarity
+export { ContentTypeFilter as CategoryFilter };

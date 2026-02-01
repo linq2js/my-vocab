@@ -102,7 +102,7 @@ const getRightPadding = (size: InputSize): string => {
  * ```
  */
 export const SearchBar = ({
-  placeholder = 'Search vocabularies...',
+  placeholder = 'Search...',
   size = 'md',
   debounceMs = 300,
   disabled = false,

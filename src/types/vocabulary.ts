@@ -1,19 +1,13 @@
 import type { VocabularyForms, ExtraEnrichment } from './gpt';
 
-/**
- * Content type classification for vocabulary entries.
- * - vocabulary: Single word or term
- * - idiom: Idiomatic expression
- * - phrasal-verb: Verb + particle combination
- * - quote: Memorable quote or saying
- */
-export type ContentType = 'vocabulary' | 'idiom' | 'phrasal-verb' | 'quote';
-
 // Re-export types for convenience
 export type { VocabularyForms, ExtraEnrichment } from './gpt';
 
 /**
  * Represents a vocabulary entry in the application.
+ * 
+ * Tags can include both predefined tags (vocabulary, idiom, phrasal-verb, etc.)
+ * and custom user tags. Predefined tags trigger additional AI enrichment fields.
  * 
  * @example
  * ```typescript
@@ -21,9 +15,8 @@ export type { VocabularyForms, ExtraEnrichment } from './gpt';
  *   id: 'abc123',
  *   text: 'serendipity',
  *   description: 'A happy accident',
- *   tags: ['positive', 'rare'],
+ *   tags: ['vocabulary', 'positive', 'rare'],  // 'vocabulary' is predefined, others are custom
  *   language: 'en',
- *   contentType: 'vocabulary',
  *   definition: 'The occurrence of events by chance in a happy way',
  *   ipa: '/ˌserənˈdɪpɪti/',
  *   examples: ['Finding that book was pure serendipity.'],
@@ -43,14 +36,11 @@ export interface Vocabulary {
   /** Optional user-provided description or notes */
   description?: string;
   
-  /** Tags for categorization and filtering */
+  /** Tags for categorization and filtering (includes predefined and custom tags) */
   tags: string[];
   
   /** Language code (e.g., 'en', 'es', 'fr') */
   language: string;
-  
-  /** Type of content this entry represents */
-  contentType: ContentType;
   
   /** Dictionary definition (typically from GPT enrichment) */
   definition?: string;

@@ -1,6 +1,9 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { HomePage, AddVocabPage, SettingsPage } from './pages';
 import { OfflineIndicator } from './components/molecules';
+import { PWAPrompts } from './components/molecules/PWAPrompts';
+import { settingsStore } from './stores/settings.store';
 import './App.css';
 
 /**
@@ -14,15 +17,24 @@ import './App.css';
  *
  * Features:
  * - Offline indicator when network is unavailable
+ * - PWA install and update prompts
  * - Full PWA support with service worker
  *
  * @returns The root application component with routing
  */
 function App(): React.ReactElement {
+  // Initialize settings store on app mount (before any page uses it)
+  useEffect(() => {
+    settingsStore.init().catch(console.error);
+  }, []);
+
   return (
     <BrowserRouter>
       {/* Offline indicator banner */}
       <OfflineIndicator />
+      
+      {/* PWA install and update prompts */}
+      <PWAPrompts />
       
       <Routes>
         <Route path="/" element={<HomePage />} />

@@ -19,7 +19,7 @@
  * uiStore.setSearchQuery('hello');
  *
  * // Set filters
- * uiStore.setFilters({ language: 'en', contentTypes: ['vocabulary'] });
+ * uiStore.setFilters({ language: 'en', predefinedTags: ['vocabulary'] });
  *
  * // Open modal
  * uiStore.openModal('addVocab');
@@ -32,7 +32,6 @@
  */
 
 import { atom } from 'atomirx';
-import type { ContentType } from '../types/vocabulary';
 
 /**
  * Modal types available in the application.
@@ -52,9 +51,11 @@ export type ModalType =
 export interface UiFilters {
   /** Filter by language code (e.g., 'en', 'fr') */
   language: string | null;
-  /** Filter by content types (multiple selection, empty = all) */
-  contentTypes: ContentType[];
-  /** Filter by tags (items must contain all tags) */
+  /** Filter by predefined tags (multiple selection, empty = all) */
+  predefinedTags: string[];
+  /** Filter for entries with no predefined tags */
+  noPredefinedTag: boolean;
+  /** Filter by custom tags (items must contain all tags) */
   tags: string[];
 }
 
@@ -75,7 +76,8 @@ export interface ModalState {
  */
 export const DEFAULT_FILTERS: UiFilters = {
   language: null,
-  contentTypes: [],
+  predefinedTags: [],
+  noPredefinedTag: false,
   tags: [],
 };
 
@@ -218,7 +220,8 @@ export function createUiStore(): UiStore {
     const currentFilters = filters$.get();
     return (
       currentFilters.language !== null ||
-      currentFilters.contentTypes.length > 0 ||
+      currentFilters.predefinedTags.length > 0 ||
+      currentFilters.noPredefinedTag ||
       currentFilters.tags.length > 0
     );
   };

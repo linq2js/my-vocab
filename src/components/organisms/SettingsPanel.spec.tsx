@@ -14,6 +14,9 @@ const mockSettings: AppSettings = {
   theme: 'system',
   defaultLanguage: 'en',
   extraEnrichment: {},
+  lastUsedLanguage: 'en',
+  lastUsedCategories: [],
+  lastUsedExtraEnrichment: '',
 };
 
 describe('SettingsPanel', () => {

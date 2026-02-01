@@ -24,7 +24,7 @@
  */
 
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { Vocabulary, ContentType } from '../types/vocabulary';
+import type { Vocabulary } from '../types/vocabulary';
 import type { GptEnrichmentResponse } from '../types/gpt';
 
 /** Database name for MyVocab PWA */
@@ -46,15 +46,22 @@ export interface GptCacheEntry {
 }
 
 /**
+ * Legacy vocabulary type that may have contentType field (for migration).
+ */
+interface LegacyVocabulary extends Vocabulary {
+  contentType?: string;
+}
+
+/**
  * IndexedDB schema definition for type safety.
  */
 interface MyVocabDB extends DBSchema {
   vocabularies: {
     key: string;
-    value: Vocabulary;
+    value: LegacyVocabulary;
     indexes: {
       'by-language': string;
-      'by-contentType': ContentType;
+      'by-contentType': string;  // Keep for backward compatibility
       'by-createdAt': Date;
     };
   };
@@ -77,7 +84,6 @@ export interface StorageService {
   updateVocabulary: (vocabulary: Vocabulary) => Promise<void>;
   deleteVocabulary: (id: string) => Promise<void>;
   getVocabulariesByLanguage: (language: string) => Promise<Vocabulary[]>;
-  getVocabulariesByContentType: (contentType: ContentType) => Promise<Vocabulary[]>;
   getCachedGptResponse: (key: string) => Promise<GptEnrichmentResponse | undefined>;
   cacheGptResponse: (key: string, response: GptEnrichmentResponse) => Promise<void>;
   clearGptCache: () => Promise<void>;
@@ -173,12 +179,47 @@ export function storageService(): StorageService {
 
   /**
    * Retrieves all vocabulary entries from the database.
+   * Migrates legacy entries that have contentType to use tags instead.
    *
    * @returns Promise resolving to an array of all vocabularies
    */
   const getAllVocabularies = async (): Promise<Vocabulary[]> => {
     const database = await getDB();
-    return database.getAll('vocabularies');
+    const rawVocabularies = await database.getAll('vocabularies');
+    
+    // Migrate legacy entries that have contentType
+    const migratedVocabularies: Vocabulary[] = [];
+    const updatePromises: Promise<void>[] = [];
+    
+    for (const vocab of rawVocabularies) {
+      const legacyVocab = vocab as LegacyVocabulary;
+      
+      if (legacyVocab.contentType && !legacyVocab.tags.includes(legacyVocab.contentType)) {
+        // Add contentType to tags if not already present
+        const migratedVocab: Vocabulary = {
+          ...legacyVocab,
+          tags: [legacyVocab.contentType, ...legacyVocab.tags],
+        };
+        // Remove contentType from the object (it's now in tags)
+        delete (migratedVocab as LegacyVocabulary).contentType;
+        
+        migratedVocabularies.push(migratedVocab);
+        // Update in database (fire and forget, but collect promises)
+        updatePromises.push(database.put('vocabularies', migratedVocab as LegacyVocabulary).then(() => {}));
+      } else {
+        // Remove contentType if present (already in tags)
+        const cleanVocab = { ...legacyVocab };
+        delete cleanVocab.contentType;
+        migratedVocabularies.push(cleanVocab as Vocabulary);
+      }
+    }
+    
+    // Wait for all migrations to complete
+    if (updatePromises.length > 0) {
+      await Promise.all(updatePromises);
+    }
+    
+    return migratedVocabularies;
   };
 
   /**
@@ -215,19 +256,6 @@ export function storageService(): StorageService {
   ): Promise<Vocabulary[]> => {
     const database = await getDB();
     return database.getAllFromIndex('vocabularies', 'by-language', language);
-  };
-
-  /**
-   * Retrieves vocabularies filtered by content type.
-   *
-   * @param contentType - The content type to filter by
-   * @returns Promise resolving to an array of matching vocabularies
-   */
-  const getVocabulariesByContentType = async (
-    contentType: ContentType
-  ): Promise<Vocabulary[]> => {
-    const database = await getDB();
-    return database.getAllFromIndex('vocabularies', 'by-contentType', contentType);
   };
 
   /**
@@ -320,7 +348,6 @@ export function storageService(): StorageService {
 
     // Vocabulary queries
     getVocabulariesByLanguage,
-    getVocabulariesByContentType,
     getVocabularyCount,
 
     // GPT cache

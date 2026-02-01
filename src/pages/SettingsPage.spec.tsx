@@ -47,6 +47,9 @@ describe('SettingsPage', () => {
     theme: 'system',
     defaultLanguage: 'en',
     extraEnrichment: {},
+    lastUsedLanguage: 'en',
+    lastUsedCategories: [],
+    lastUsedExtraEnrichment: '',
   };
 
   /**

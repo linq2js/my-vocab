@@ -6,7 +6,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createVocabStore, type VocabStore } from './vocab.store';
-import type { Vocabulary, ContentType } from '../types/vocabulary';
+import type { Vocabulary } from '../types/vocabulary';
 import type { StorageService } from '../services/storage.service';
 
 /**
@@ -17,9 +17,8 @@ function createMockVocabulary(overrides: Partial<Vocabulary> = {}): Vocabulary {
     id: `vocab_${Date.now()}_${Math.random().toString(36).slice(2)}`,
     text: 'serendipity',
     description: 'A happy accident',
-    tags: ['positive', 'rare'],
+    tags: ['vocabulary', 'positive', 'rare'],
     language: 'en',
-    contentType: 'vocabulary',
     definition: 'The occurrence of events by chance in a happy way',
     ipa: '/ˌserənˈdɪpɪti/',
     examples: ['Finding that book was pure serendipity.'],
@@ -58,9 +57,6 @@ function createMockStorageService(
     }),
     getVocabulariesByLanguage: vi.fn(async (language: string) => {
       return vocabs.filter((v) => v.language === language);
-    }),
-    getVocabulariesByContentType: vi.fn(async (contentType: ContentType) => {
-      return vocabs.filter((v) => v.contentType === contentType);
     }),
     getCachedGptResponse: vi.fn(async () => undefined),
     cacheGptResponse: vi.fn(async () => {}),
@@ -267,8 +263,7 @@ describe('vocabStore', () => {
           id: 'v1',
           text: 'hello',
           language: 'en',
-          contentType: 'vocabulary',
-          tags: ['greeting'],
+          tags: ['vocabulary', 'greeting'],
         })
       );
       await store.add(
@@ -276,8 +271,7 @@ describe('vocabStore', () => {
           id: 'v2',
           text: 'bonjour',
           language: 'fr',
-          contentType: 'vocabulary',
-          tags: ['greeting', 'formal'],
+          tags: ['vocabulary', 'greeting', 'formal'],
         })
       );
       await store.add(
@@ -285,8 +279,7 @@ describe('vocabStore', () => {
           id: 'v3',
           text: 'break a leg',
           language: 'en',
-          contentType: 'idiom',
-          tags: ['luck'],
+          tags: ['idiom', 'luck'],
         })
       );
     });
@@ -298,8 +291,8 @@ describe('vocabStore', () => {
       expect(filtered.every((v) => v.language === 'en')).toBe(true);
     });
 
-    it('should filter by contentType', () => {
-      const filtered = store.filter({ contentType: 'idiom' });
+    it('should filter by predefined tag', () => {
+      const filtered = store.filter({ tag: 'idiom' });
 
       expect(filtered).toHaveLength(1);
       expect(filtered[0]?.text).toBe('break a leg');
@@ -321,7 +314,7 @@ describe('vocabStore', () => {
     it('should combine multiple filters', () => {
       const filtered = store.filter({
         language: 'en',
-        contentType: 'vocabulary',
+        tag: 'vocabulary',
       });
 
       expect(filtered).toHaveLength(1);

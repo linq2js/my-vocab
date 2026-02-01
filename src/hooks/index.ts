@@ -10,3 +10,10 @@ export {
 } from './useNetworkStatus';
 
 export { useSpeech, type UseSpeechResult } from './useSpeech';
+
+export { 
+  usePWA, 
+  initPWA, 
+  setWaitingServiceWorker,
+  type UsePWAResult 
+} from './usePWA';

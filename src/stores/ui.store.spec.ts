@@ -50,32 +50,32 @@ describe('UI Store', () => {
       it('should update filters via setFilters', () => {
         const newFilters: Partial<UiFilters> = {
           language: 'en',
-          contentTypes: ['vocabulary'],
+          predefinedTags: ['vocabulary'],
         };
         store.setFilters(newFilters);
 
         expect(store.filters$.get()).toEqual({
           ...DEFAULT_FILTERS,
           language: 'en',
-          contentTypes: ['vocabulary'],
+          predefinedTags: ['vocabulary'],
         });
       });
 
       it('should merge partial filters with existing', () => {
         store.setFilters({ language: 'en' });
-        store.setFilters({ contentTypes: ['idiom'] });
+        store.setFilters({ predefinedTags: ['idiom'] });
 
         expect(store.filters$.get()).toEqual({
           ...DEFAULT_FILTERS,
           language: 'en',
-          contentTypes: ['idiom'],
+          predefinedTags: ['idiom'],
         });
       });
 
       it('should reset filters to defaults', () => {
         store.setFilters({
           language: 'fr',
-          contentTypes: ['quote'],
+          predefinedTags: ['quote'],
           tags: ['test'],
         });
         store.resetFilters();
@@ -93,8 +93,8 @@ describe('UI Store', () => {
         expect(store.hasActiveFilters()).toBe(false);
       });
 
-      it('should detect active filters for contentTypes', () => {
-        store.setFilters({ contentTypes: ['idiom'] });
+      it('should detect active filters for predefinedTags', () => {
+        store.setFilters({ predefinedTags: ['idiom'] });
         expect(store.hasActiveFilters()).toBe(true);
       });
 
@@ -167,7 +167,7 @@ describe('UI Store', () => {
       it('should reset all UI state', () => {
         // Set various states
         store.setSearchQuery('test query');
-        store.setFilters({ language: 'en', contentTypes: ['idiom'] });
+        store.setFilters({ language: 'en', predefinedTags: ['idiom'] });
         store.openModal('settings', { tab: 'theme' });
 
         // Reset all

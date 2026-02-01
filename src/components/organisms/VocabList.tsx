@@ -1,47 +1,9 @@
 import { HTMLAttributes } from 'react';
 import { VocabCard } from '../molecules/VocabCard';
 import { Spinner } from '../atoms/Spinner';
-import { Icon, type IconName } from '../atoms/Icon';
+import { Icon } from '../atoms/Icon';
 import { Button } from '../atoms/Button';
 import type { Vocabulary } from '../../types/vocabulary';
-import { 
-  ContentType, 
-  getContentTypeDisplay 
-} from '../../constants/contentTypes';
-
-/**
- * Content type option for "Add as" suggestions
- */
-interface AddAsOption {
-  id: string;
-  label: string;
-  abbr: string;
-  icon: IconName;
-}
-
-/**
- * Build add-as options from content type config
- */
-const buildAddAsOption = (type: ContentType): AddAsOption => {
-  const display = getContentTypeDisplay(type);
-  return {
-    id: type,
-    label: display.label,
-    abbr: display.abbr,
-    icon: display.icon as IconName,
-  };
-};
-
-/**
- * Available content types for "Add as" suggestions.
- * Uses abbreviations (V, I, P, Q) for compact display.
- */
-const ADD_AS_OPTIONS: AddAsOption[] = [
-  buildAddAsOption(ContentType.VOCABULARY),
-  buildAddAsOption(ContentType.IDIOM),
-  buildAddAsOption(ContentType.PHRASAL_VERB),
-  buildAddAsOption(ContentType.QUOTE),
-];
 
 /**
  * Props for the VocabList component
@@ -55,7 +17,7 @@ export interface VocabListProps extends Omit<HTMLAttributes<HTMLElement>, 'child
   loading?: boolean;
   /** Whether there are active filters applied */
   hasActiveFilters?: boolean;
-  /** Current search query (used for "Add as" suggestions) */
+  /** Current search query (used for "Add" suggestion) */
   searchQuery?: string;
   /** Custom message to show when list is empty */
   emptyMessage?: string;
@@ -63,8 +25,8 @@ export interface VocabListProps extends Omit<HTMLAttributes<HTMLElement>, 'child
   onEdit?: (vocabulary: Vocabulary) => void;
   /** Callback when delete button is clicked on a card */
   onDelete?: (vocabulary: Vocabulary) => void;
-  /** Callback when user wants to add search term as a content type */
-  onAddAs?: (contentType: string, text: string) => void;
+  /** Callback when user wants to add search term as vocabulary */
+  onAddAs?: (category: string, text: string) => void;
 }
 
 /**
@@ -131,9 +93,9 @@ export const VocabList = ({
     );
   }
 
-  // Check if we have a search query to show "Add as" suggestions
+  // Check if we have a search query to show "Add" suggestion
   const trimmedQuery = searchQuery.trim();
-  const showAddAsSuggestions = items.length === 0 && trimmedQuery.length > 0 && onAddAs;
+  const showAddSuggestion = items.length === 0 && trimmedQuery.length > 0 && onAddAs;
 
   // Empty state
   if (items.length === 0) {
@@ -158,43 +120,34 @@ export const VocabList = ({
           />
         </div>
         <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">
-          {showAddAsSuggestions 
+          {showAddSuggestion 
             ? `No results for "${trimmedQuery}"`
             : emptyMessage
           }
         </h3>
         
-        {/* Add as suggestions when search has no results */}
-        {showAddAsSuggestions && (
-          <div className="mt-4 w-full max-w-md">
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-              Would you like to add it as:
-            </p>
-            <div className="flex flex-wrap justify-center gap-2">
-              {ADD_AS_OPTIONS.map((option) => (
-                <Button
-                  key={option.id}
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => onAddAs(option.id, trimmedQuery)}
-                  className="inline-flex items-center gap-2"
-                  title={option.label}
-                >
-                  <Icon name={option.icon} size="sm" />
-                  {option.abbr}
-                </Button>
-              ))}
-            </div>
+        {/* Add suggestion when search has no results */}
+        {showAddSuggestion && (
+          <div className="mt-4">
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => onAddAs('', trimmedQuery)}
+              className="inline-flex items-center gap-2"
+            >
+              <Icon name="plus" size="sm" />
+              Add "{trimmedQuery}"
+            </Button>
           </div>
         )}
 
         {/* Default empty state messages */}
-        {!showAddAsSuggestions && hasActiveFilters && (
+        {!showAddSuggestion && hasActiveFilters && (
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Try adjusting your filters or search query
           </p>
         )}
-        {!showAddAsSuggestions && !hasActiveFilters && (
+        {!showAddSuggestion && !hasActiveFilters && (
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Add your first vocabulary to get started
           </p>

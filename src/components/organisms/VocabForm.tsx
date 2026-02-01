@@ -1,14 +1,15 @@
-import { useState, useCallback, useId, useEffect, useRef, FormEvent, ChangeEvent } from 'react';
+import { useState, useCallback, useId, useMemo, useEffect, useRef, FormEvent, ChangeEvent } from 'react';
+import { useSelector } from 'atomirx/react';
 import { Input } from '../atoms/Input';
 import { Button } from '../atoms/Button';
 import { Icon } from '../atoms/Icon';
 import { TagInput } from '../molecules/TagInput';
 import { LANGUAGES, DEFAULT_LANGUAGE_CODE } from '../../constants/languages';
-import { ContentType } from '../../constants/contentTypes';
+import { PREDEFINED_TAGS, separateTags, matchPartOfSpeechToTag } from '../../constants/predefinedTags';
 import { gptService } from '../../services/gpt.service';
 import { settingsStore } from '../../stores/settings.store';
 import { useNetworkStatus, getNetworkErrorMessage } from '../../hooks';
-import type { Vocabulary, ContentType as ContentTypeValue, VocabularyForms, ExtraEnrichment } from '../../types/vocabulary';
+import type { Vocabulary, VocabularyForms, ExtraEnrichment } from '../../types/vocabulary';
 
 /**
  * Form data structure for vocabulary creation/editing.
@@ -19,7 +20,6 @@ export interface VocabFormData {
   description?: string;
   tags: string[];
   language: string;
-  contentType: ContentTypeValue;
   definition?: string;
   ipa?: string;
   examples?: string[];
@@ -40,8 +40,6 @@ export interface VocabFormProps {
   initialData?: Vocabulary;
   /** Whether the form is in a loading state */
   loading?: boolean;
-  /** Hide the content type selector (when type is pre-determined) */
-  hideContentType?: boolean;
   /** Additional CSS classes for the form container */
   className?: string;
 }
@@ -52,16 +50,6 @@ export interface VocabFormProps {
 interface FormErrors {
   text?: string;
 }
-
-/**
- * Content type options for the select dropdown.
- */
-const CONTENT_TYPE_OPTIONS: { value: ContentTypeValue; label: string }[] = [
-  { value: ContentType.VOCABULARY, label: 'Vocabulary' },
-  { value: ContentType.IDIOM, label: 'Idiom' },
-  { value: ContentType.PHRASAL_VERB, label: 'Phrasal Verb' },
-  { value: ContentType.QUOTE, label: 'Quote' },
-];
 
 /**
  * Maps form keys to human-readable labels.
@@ -89,9 +77,10 @@ function formatFormLabel(key: string): string {
  * VocabForm organism component for creating and editing vocabulary entries.
  *
  * Features:
- * - Form fields for text, language, content type, description
- * - TagInput integration for managing tags
- * - GPT enrichment trigger to auto-fill definition, IPA, examples
+ * - Form fields for text, language, description
+ * - Predefined tag chips for quick categorization (idiom, phrasal verb, etc.)
+ * - TagInput integration for custom tags
+ * - GPT enrichment trigger with combined enrichment from predefined tags
  * - Form validation with error messages
  * - Edit mode support with pre-populated data
  * - Loading state handling
@@ -108,12 +97,6 @@ function formatFormLabel(key: string): string {
  *   onSubmit={handleUpdate}
  *   onCancel={() => navigate(-1)}
  * />
- *
- * // With loading state
- * <VocabForm
- *   onSubmit={handleSubmit}
- *   loading={isSaving}
- * />
  * ```
  */
 export const VocabForm = ({
@@ -121,23 +104,34 @@ export const VocabForm = ({
   onCancel,
   initialData,
   loading = false,
-  hideContentType = false,
   className = '',
 }: VocabFormProps) => {
   const formId = useId();
   const isEditMode = Boolean(initialData?.id);
 
+  // Subscribe to settings for reactive updates
+  const settings = useSelector(settingsStore.settings$);
+  
+  // Track if we've applied last-used values (only once when settings load)
+  const appliedLastUsed = useRef(false);
+
+  // Separate initial tags into predefined and custom
+  const initialTags = useMemo(() => {
+    return separateTags(initialData?.tags ?? []);
+  }, [initialData?.tags]);
+
   // Form state
   const [text, setText] = useState(initialData?.text ?? '');
   const [description, setDescription] = useState(initialData?.description ?? '');
-  // Use saved default language from settings, or initialData for edit mode
   const [language, setLanguage] = useState(
-    initialData?.language ?? settingsStore.settings$.get().defaultLanguage ?? DEFAULT_LANGUAGE_CODE
+    initialData?.language ?? DEFAULT_LANGUAGE_CODE
   );
-  const [contentType, setContentType] = useState<ContentTypeValue>(
-    initialData?.contentType ?? ContentType.VOCABULARY
+  // Predefined tags (idiom, phrasal-verb, etc.)
+  const [selectedPredefinedTags, setSelectedPredefinedTags] = useState<string[]>(
+    isEditMode ? initialTags.predefined : []
   );
-  const [tags, setTags] = useState<string[]>(initialData?.tags ?? []);
+  // Custom user tags
+  const [customTags, setCustomTags] = useState<string[]>(initialTags.custom);
 
   // Enrichment data (from GPT)
   const [definition, setDefinition] = useState(initialData?.definition);
@@ -148,13 +142,34 @@ export const VocabForm = ({
   const [extra, setExtra] = useState<ExtraEnrichment | undefined>(initialData?.extra);
 
   // Extra enrichment request (user input for custom fields)
-  // Initialize from settings based on content type
-  const [extraRequest, setExtraRequest] = useState(() =>
-    settingsStore.getExtraEnrichment(initialData?.contentType ?? ContentType.VOCABULARY)
-  );
+  const [extraRequest, setExtraRequest] = useState('');
 
-  // Track if extraRequest was modified by user (to avoid overwriting on content type change)
-  const extraRequestModifiedRef = useRef(false);
+  // Apply last-used values when settings load (only for new entries, only once)
+  useEffect(() => {
+    if (isEditMode || appliedLastUsed.current) return;
+    
+    // Check if settings have real values (not just defaults)
+    const hasLoadedSettings = settings.lastUsedLanguage !== undefined;
+    if (!hasLoadedSettings) return;
+    
+    appliedLastUsed.current = true;
+    
+    // Apply last-used values
+    if (settings.lastUsedLanguage) {
+      setLanguage(settings.lastUsedLanguage);
+    }
+    if (settings.lastUsedCategories && settings.lastUsedCategories.length > 0) {
+      setSelectedPredefinedTags(settings.lastUsedCategories);
+    }
+    if (settings.lastUsedExtraEnrichment) {
+      setExtraRequest(settings.lastUsedExtraEnrichment);
+    }
+  }, [isEditMode, settings]);
+
+  // Get combined enrichment placeholder from selected predefined tags
+  const extraPlaceholder = useMemo(() => {
+    return settingsStore.getCombinedEnrichmentFromTags(selectedPredefinedTags);
+  }, [selectedPredefinedTags]);
 
   // UI state
   const [errors, setErrors] = useState<FormErrors>({});
@@ -162,31 +177,37 @@ export const VocabForm = ({
   const [enrichError, setEnrichError] = useState<string | null>(null);
 
   /**
-   * Load saved extra enrichment when content type changes.
+   * Toggle a predefined tag selection.
    */
-  useEffect(() => {
-    // Only update if user hasn't manually modified the field
-    if (!extraRequestModifiedRef.current) {
-      const savedExtra = settingsStore.getExtraEnrichment(contentType);
-      setExtraRequest(savedExtra);
-    }
-  }, [contentType]);
+  const handlePredefinedTagToggle = useCallback((tagId: string) => {
+    setSelectedPredefinedTags((prev) =>
+      prev.includes(tagId)
+        ? prev.filter((t) => t !== tagId)
+        : [...prev, tagId]
+    );
+  }, []);
 
   /**
-   * Save extra enrichment to settings when user finishes editing (on blur).
+   * Handle custom tags change from TagInput.
+   * Filters out any predefined tags that might be typed.
    */
-  const handleExtraRequestBlur = useCallback(() => {
-    settingsStore.setExtraEnrichment(contentType, extraRequest);
-    // Reset the modified flag after saving
-    extraRequestModifiedRef.current = false;
-  }, [contentType, extraRequest]);
+  const handleCustomTagsChange = useCallback((newTags: string[]) => {
+    // If user types a predefined tag, add it to predefined selection instead
+    const { predefined, custom } = separateTags(newTags);
+    if (predefined.length > 0) {
+      setSelectedPredefinedTags((prev) => {
+        const combined = new Set([...prev, ...predefined]);
+        return Array.from(combined);
+      });
+    }
+    setCustomTags(custom);
+  }, []);
 
   /**
    * Handle extra request input change.
    */
   const handleExtraRequestChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     setExtraRequest(e.target.value);
-    extraRequestModifiedRef.current = true;
   }, []);
 
   /**
@@ -214,12 +235,25 @@ export const VocabForm = ({
         return;
       }
 
+      // Save last used values for new entries (fire and forget)
+      if (!isEditMode) {
+        settingsStore.setLastUsedFormValues({
+          language,
+          categories: selectedPredefinedTags,
+          extraEnrichment: extraRequest,
+        }).catch(() => {
+          // Ignore errors - just a convenience feature
+        });
+      }
+
+      // Combine predefined and custom tags
+      const allTags = [...selectedPredefinedTags, ...customTags];
+
       const formData: Partial<Vocabulary> & VocabFormData = {
         text: text.trim(),
         description: description.trim() || undefined,
-        tags,
+        tags: allTags,
         language,
-        contentType,
         definition,
         ipa,
         examples,
@@ -239,16 +273,18 @@ export const VocabForm = ({
     [
       text,
       description,
-      tags,
+      selectedPredefinedTags,
+      customTags,
       language,
-      contentType,
       definition,
       ipa,
       examples,
       partOfSpeech,
       forms,
       extra,
+      extraRequest,
       initialData,
+      isEditMode,
       onSubmit,
       validateForm,
     ]
@@ -300,16 +336,6 @@ export const VocabForm = ({
     settingsStore.setDefaultLanguage(newLanguage);
   }, []);
 
-  /**
-   * Handles content type select change.
-   */
-  const handleContentTypeChange = useCallback(
-    (e: ChangeEvent<HTMLSelectElement>) => {
-      setContentType(e.target.value as ContentTypeValue);
-    },
-    []
-  );
-
   // Network status for offline detection
   const { isOffline } = useNetworkStatus();
 
@@ -344,7 +370,9 @@ export const VocabForm = ({
         return;
       }
 
-      const enrichment = await gpt.enrich(text.trim(), language, extraRequest || undefined);
+      // Use custom extra request, or fall back to combined enrichment from predefined tags
+      const extraFieldsToUse = extraRequest.trim() || extraPlaceholder || undefined;
+      const enrichment = await gpt.enrich(text.trim(), language, extraFieldsToUse);
 
       setDefinition(enrichment.definition);
       setIpa(enrichment.ipa);
@@ -352,6 +380,14 @@ export const VocabForm = ({
       setPartOfSpeech(enrichment.type);
       setForms(enrichment.forms);
       setExtra(enrichment.extra);
+
+      // Auto-select category if user hasn't selected any and AI returned a matching type
+      if (selectedPredefinedTags.length === 0 && enrichment.type) {
+        const matchedTag = matchPartOfSpeechToTag(enrichment.type);
+        if (matchedTag) {
+          setSelectedPredefinedTags([matchedTag]);
+        }
+      }
     } catch (error) {
       // Use graceful error message
       const message = getNetworkErrorMessage(error, 'Failed to enrich vocabulary');
@@ -359,7 +395,7 @@ export const VocabForm = ({
     } finally {
       setIsEnriching(false);
     }
-  }, [text, language, isOffline, extraRequest]);
+  }, [text, language, isOffline, extraRequest, extraPlaceholder, selectedPredefinedTags]);
 
   const canEnrich = text.trim().length > 0 && !loading && !isEnriching && !isOffline;
   const isFormDisabled = loading;
@@ -406,55 +442,63 @@ export const VocabForm = ({
         </div>
       </div>
 
-      {/* Language and Content Type Row */}
-      <div className={`grid gap-4 ${hideContentType ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
-        {/* Language Select */}
-        <div>
-          <label
-            htmlFor={`${formId}-language`}
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-          >
-            Language
-          </label>
-          <select
-            id={`${formId}-language`}
-            value={language}
-            onChange={handleLanguageChange}
-            disabled={isFormDisabled}
-            className="w-full px-4 py-2 text-base border rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {LANGUAGES.map((lang) => (
-              <option key={lang.code} value={lang.code}>
-                {lang.name}
-              </option>
-            ))}
-          </select>
-        </div>
+      {/* Language Select */}
+      <div>
+        <label
+          htmlFor={`${formId}-language`}
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+        >
+          Language
+        </label>
+        <select
+          id={`${formId}-language`}
+          value={language}
+          onChange={handleLanguageChange}
+          disabled={isFormDisabled}
+          className="w-full px-4 py-2 text-base border rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {LANGUAGES.map((lang) => (
+            <option key={lang.code} value={lang.code}>
+              {lang.name}
+            </option>
+          ))}
+        </select>
+      </div>
 
-        {/* Content Type Select - hidden when type is pre-determined */}
-        {!hideContentType && (
-          <div>
-            <label
-              htmlFor={`${formId}-contentType`}
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
-              Content Type
-            </label>
-            <select
-              id={`${formId}-contentType`}
-              value={contentType}
-              onChange={handleContentTypeChange}
-              disabled={isFormDisabled}
-              className="w-full px-4 py-2 text-base border rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {CONTENT_TYPE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+      {/* Predefined Tags Section */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Category
+        </label>
+        <div className="flex flex-wrap gap-2">
+          {PREDEFINED_TAGS.map((tag) => {
+            const isSelected = selectedPredefinedTags.includes(tag.id);
+            return (
+              <button
+                key={tag.id}
+                type="button"
+                onClick={() => handlePredefinedTagToggle(tag.id)}
+                disabled={isFormDisabled}
+                title={tag.description}
+                className={`
+                  inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium
+                  transition-colors duration-200 border
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                  ${isSelected
+                    ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 border-blue-300 dark:border-blue-700'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  }
+                `}
+              >
+                <Icon name={tag.icon as any} size="sm" />
+                {tag.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+          Select categories to get relevant AI enrichment. Multiple selections combine their fields.
+        </p>
       </div>
 
       {/* Description Textarea */}
@@ -476,14 +520,14 @@ export const VocabForm = ({
         />
       </div>
 
-      {/* Tags Input */}
+      {/* Custom Tags Input */}
       <TagInput
-        label="Tags"
-        tags={tags}
-        onChange={setTags}
+        label="Custom Tags"
+        tags={customTags}
+        onChange={handleCustomTagsChange}
         placeholder="Type and press Enter..."
         disabled={isFormDisabled}
-        helperText="Add tags to categorize your vocabulary"
+        helperText="Add your own tags for organization"
       />
 
       {/* GPT Enrichment Section */}
@@ -509,14 +553,13 @@ export const VocabForm = ({
           <Input
             value={extraRequest}
             onChange={handleExtraRequestChange}
-            onBlur={handleExtraRequestBlur}
-            placeholder="Extra fields: synonyms, antonyms, etymology..."
+            placeholder={extraPlaceholder || 'synonyms, antonyms, etymology...'}
             disabled={isFormDisabled || isEnriching}
             fullWidth
             size="sm"
           />
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Optional: Request additional AI-generated fields (comma-separated). Saved per content type.
+            Optional: Customize extra fields or leave empty to use category defaults.
           </p>
         </div>
 

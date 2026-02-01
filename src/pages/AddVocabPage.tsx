@@ -23,42 +23,7 @@ import { PageLayout } from '../components/templates/PageLayout';
 import { VocabForm, type VocabFormData } from '../components/organisms/VocabForm';
 import { Icon } from '../components/atoms/Icon';
 import { vocabStore } from '../stores/vocab.store';
-import type { Vocabulary, ContentType } from '../types/vocabulary';
-
-/**
- * Content type configuration for display
- */
-interface ContentTypeConfig {
-  title: string;
-  description: string;
-  contentType: ContentType;
-}
-
-/**
- * Map of URL type parameter to content type configuration
- */
-const CONTENT_TYPE_CONFIG: Record<string, ContentTypeConfig> = {
-  word: {
-    title: 'Add Vocabulary',
-    description: 'Add a new word or phrase to your collection.',
-    contentType: 'vocabulary',
-  },
-  vocabulary: {
-    title: 'Add Vocabulary',
-    description: 'Add a new word or phrase to your collection.',
-    contentType: 'vocabulary',
-  },
-  idiom: {
-    title: 'Add Idiom',
-    description: 'Add a new idiom or expression to your collection.',
-    contentType: 'idiom',
-  },
-  'phrasal-verb': {
-    title: 'Add Phrasal Verb',
-    description: 'Add a new phrasal verb to your collection.',
-    contentType: 'phrasal-verb',
-  },
-};
+import type { Vocabulary } from '../types/vocabulary';
 
 /**
  * AddVocabPage component - page for adding/editing vocabulary entries.
@@ -69,8 +34,7 @@ export const AddVocabPage = (): React.ReactElement => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // Get content type, text, and edit ID from URL parameters
-  const typeParam = searchParams.get('type') || 'word';
+  // Get text and edit ID from URL parameters
   const textParam = searchParams.get('text') || '';
   const editId = searchParams.get('edit');
   
@@ -83,25 +47,20 @@ export const AddVocabPage = (): React.ReactElement => {
     return vocabStore.getById(editId);
   }, [editId]);
 
-  const config = useMemo(() => {
-    // In edit mode, use the vocabulary's content type
-    if (vocabularyToEdit) {
-      const typeKey = vocabularyToEdit.contentType;
-      return CONTENT_TYPE_CONFIG[typeKey] || CONTENT_TYPE_CONFIG.word;
-    }
-    return CONTENT_TYPE_CONFIG[typeParam] || CONTENT_TYPE_CONFIG.word;
-  }, [typeParam, vocabularyToEdit]);
-
   // Build initial data from URL parameters or existing vocabulary
   const initialData = useMemo(() => {
     if (vocabularyToEdit) {
       return vocabularyToEdit;
     }
-    return {
-      contentType: config?.contentType ?? 'vocabulary',
-      text: textParam,
-    } as Vocabulary;
-  }, [config?.contentType, textParam, vocabularyToEdit]);
+    if (textParam) {
+      return {
+        text: textParam,
+        tags: [],
+        language: 'en',
+      } as unknown as Vocabulary;
+    }
+    return undefined;
+  }, [textParam, vocabularyToEdit]);
 
   // Loading state for save operation
   const [isSaving, setIsSaving] = useState(false);
@@ -128,7 +87,6 @@ export const AddVocabPage = (): React.ReactElement => {
           description: data.description,
           tags: data.tags,
           language: data.language,
-          contentType: data.contentType,
           definition: data.definition,
           ipa: data.ipa,
           examples: data.examples,
@@ -182,16 +140,13 @@ export const AddVocabPage = (): React.ReactElement => {
               <Icon name="chevron-left" size="md" />
             </Link>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {isEditMode 
-                ? `Edit ${config?.title?.replace('Add ', '') ?? 'Vocabulary'}`
-                : (config?.title ?? 'Add Vocabulary')
-              }
+              {isEditMode ? 'Edit' : 'Add'}
             </h2>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 ml-12">
             {isEditMode
-              ? `Update this ${config?.contentType ?? 'vocabulary'} entry.`
-              : (config?.description ?? 'Add a new word or phrase to your collection.')
+              ? 'Update this entry.'
+              : 'Add a new word, phrase, or expression to your collection.'
             }
           </p>
         </div>
@@ -199,12 +154,11 @@ export const AddVocabPage = (): React.ReactElement => {
         {/* Form Card */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <VocabForm
-            key={`${config?.contentType ?? 'vocabulary'}-${textParam}`}
+            key={editId || 'new'}
             initialData={initialData}
             onSubmit={handleSubmit}
             onCancel={handleCancel}
             loading={isSaving}
-            hideContentType={Boolean(searchParams.get('type'))}
           />
         </div>
       </div>

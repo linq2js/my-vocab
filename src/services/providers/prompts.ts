@@ -25,7 +25,7 @@ You MUST respond with a valid JSON object containing exactly these fields:
 - definition: A clear, concise dictionary definition
 - ipa: The International Phonetic Alphabet pronunciation
 - type: The part of speech (noun, verb, adjective, etc.) or content type (idiom, phrasal verb, quote)
-- examples: An array of 2-3 example sentences demonstrating usage
+- examples: REQUIRED - An array of 2-3 example sentences demonstrating usage. This is MANDATORY for ALL content types including idioms, phrasal verbs, and quotes. For idioms and phrasal verbs, show them used naturally in context. For quotes, provide the original quote and context of when/how it was said.
 - forms: An object containing grammatical forms of the word (only include applicable forms):
   - For verbs: past, pastParticiple, presentParticiple, thirdPerson
   - For nouns: plural

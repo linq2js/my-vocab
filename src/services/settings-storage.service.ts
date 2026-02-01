@@ -180,6 +180,9 @@ export function settingsStorageService(): SettingsStorageService {
         theme: stored.settings.theme,
         defaultLanguage: stored.settings.defaultLanguage,
         extraEnrichment: stored.settings.extraEnrichment ?? {},
+        lastUsedLanguage: stored.settings.lastUsedLanguage ?? 'en',
+        lastUsedCategories: stored.settings.lastUsedCategories ?? [],
+        lastUsedExtraEnrichment: stored.settings.lastUsedExtraEnrichment ?? '',
       };
     } catch {
       // Return default settings on any error
@@ -218,6 +221,9 @@ export function settingsStorageService(): SettingsStorageService {
         theme: settings.theme,
         defaultLanguage: settings.defaultLanguage,
         extraEnrichment: settings.extraEnrichment,
+        lastUsedLanguage: settings.lastUsedLanguage,
+        lastUsedCategories: settings.lastUsedCategories,
+        lastUsedExtraEnrichment: settings.lastUsedExtraEnrichment,
       },
     };
 

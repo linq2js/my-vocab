@@ -22,9 +22,8 @@ const createMockVocab = (overrides: Partial<Vocabulary> = {}): Vocabulary => ({
   id: 'test-id-123',
   text: 'serendipity',
   description: 'A happy accident',
-  tags: ['positive', 'rare'],
+  tags: ['vocabulary', 'positive', 'rare'],
   language: 'en',
-  contentType: 'vocabulary',
   definition: 'The occurrence of events by chance in a happy way',
   ipa: '/ˌserənˈdɪpɪti/',
   examples: ['Finding that book was pure serendipity.', 'It was serendipity that we met.'],
@@ -85,7 +84,7 @@ describe('VocabCard', () => {
     });
 
     it('renders content type badge', () => {
-      const vocab = createMockVocab({ contentType: 'idiom' });
+      const vocab = createMockVocab({ tags: ['idiom'] });
       render(<VocabCard vocabulary={vocab} />);
 
       expect(screen.getByText('idiom')).toBeInTheDocument();

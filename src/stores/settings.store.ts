@@ -32,13 +32,13 @@
 
 import { atom } from 'atomirx';
 import type { AppSettings, Theme, ExtraEnrichmentPrefs } from '../types/settings';
-import type { ContentType } from '../types/vocabulary';
-import { DEFAULT_APP_SETTINGS, DEFAULT_EXTRA_ENRICHMENT } from '../types/settings';
+import { DEFAULT_APP_SETTINGS } from '../types/settings';
 import type { GptProvider, GptProviderId } from '../types/gpt';
 import {
   settingsStorageService,
   type SettingsStorageService,
 } from '../services/settings-storage.service';
+import { getCombinedEnrichment, getPredefinedTag } from '../constants/predefinedTags';
 
 /**
  * Configuration options for the settings store.
@@ -123,21 +123,37 @@ export interface SettingsStore {
   reset: () => Promise<void>;
 
   /**
-   * Gets the extra enrichment text for a content type.
+   * Gets the saved custom extra enrichment text for a predefined tag.
    *
-   * @param contentType - The content type to get extra enrichment for
-   * @returns The saved extra enrichment text or empty string
+   * @param tagId - The predefined tag ID to get custom enrichment for
+   * @returns The saved custom enrichment text or empty string
    */
-  getExtraEnrichment: (contentType: ContentType) => string;
+  getExtraEnrichment: (tagId: string) => string;
 
   /**
-   * Sets the extra enrichment text for a content type.
+   * Gets the default enrichment text for a predefined tag.
    *
-   * @param contentType - The content type to set extra enrichment for
-   * @param text - The extra enrichment text to save
+   * @param tagId - The predefined tag ID to get default enrichment for
+   * @returns The default enrichment text for this tag
+   */
+  getExtraEnrichmentPlaceholder: (tagId: string) => string;
+
+  /**
+   * Gets combined enrichment from multiple predefined tags.
+   *
+   * @param tags - Array of tags (filters to predefined ones)
+   * @returns Combined enrichment string from all predefined tags
+   */
+  getCombinedEnrichmentFromTags: (tags: string[]) => string;
+
+  /**
+   * Sets the custom extra enrichment text for a predefined tag.
+   *
+   * @param tagId - The predefined tag ID to set custom enrichment for
+   * @param text - The custom extra enrichment text to save
    * @returns Promise resolving when change is persisted
    */
-  setExtraEnrichment: (contentType: ContentType, text: string) => Promise<void>;
+  setExtraEnrichment: (tagId: string, text: string) => Promise<void>;
 
   /**
    * Gets all extra enrichment preferences.
@@ -145,6 +161,29 @@ export interface SettingsStore {
    * @returns The extra enrichment preferences object
    */
   getExtraEnrichmentPrefs: () => ExtraEnrichmentPrefs;
+
+  /**
+   * Gets the last used form values for adding new entries.
+   *
+   * @returns Object with lastUsedLanguage, lastUsedCategories, lastUsedExtraEnrichment
+   */
+  getLastUsedFormValues: () => {
+    language: string;
+    categories: string[];
+    extraEnrichment: string;
+  };
+
+  /**
+   * Saves the last used form values for adding new entries.
+   *
+   * @param values - The values to save
+   * @returns Promise resolving when change is persisted
+   */
+  setLastUsedFormValues: (values: {
+    language?: string;
+    categories?: string[];
+    extraEnrichment?: string;
+  }) => Promise<void>;
 }
 
 /**
@@ -187,8 +226,14 @@ export function createSettingsStore(
 
   /**
    * Persists current settings to storage.
+   * Only persists after initialization to prevent overwriting during hot reload.
    */
   const persistSettings = async (): Promise<void> => {
+    // Don't persist if not initialized yet - prevents overwriting during hot reload
+    if (!initialized) {
+      console.warn('[SettingsStore] Skipping persist - not initialized yet');
+      return;
+    }
     const currentSettings = settings$.get();
     await storage.saveSettings(currentSettings);
   };
@@ -272,30 +317,43 @@ export function createSettingsStore(
   };
 
   /**
-   * Gets the extra enrichment text for a content type.
-   * Returns the user's custom value if set, otherwise returns the default for that content type.
+   * Gets the saved custom extra enrichment text for a predefined tag.
+   * Returns only explicitly saved values, empty string if not set.
+   * Use getExtraEnrichmentPlaceholder for default suggestions.
    */
-  const getExtraEnrichment = (contentType: ContentType): string => {
-    const customValue = settings$.get().extraEnrichment[contentType];
-    // Return custom value if user has set one, otherwise use default
-    if (customValue !== undefined) {
-      return customValue;
-    }
-    return DEFAULT_EXTRA_ENRICHMENT[contentType] ?? '';
+  const getExtraEnrichment = (tagId: string): string => {
+    return settings$.get().extraEnrichment[tagId] ?? '';
   };
 
   /**
-   * Sets the extra enrichment text for a content type.
+   * Gets the default enrichment text for a predefined tag.
+   * Used to show what fields are commonly requested for each tag.
+   */
+  const getExtraEnrichmentPlaceholder = (tagId: string): string => {
+    const tag = getPredefinedTag(tagId);
+    return tag?.enrichment ?? '';
+  };
+
+  /**
+   * Gets combined enrichment from multiple predefined tags.
+   * Deduplicates fields when combining.
+   */
+  const getCombinedEnrichmentFromTags = (tags: string[]): string => {
+    return getCombinedEnrichment(tags);
+  };
+
+  /**
+   * Sets the custom extra enrichment text for a predefined tag.
    */
   const setExtraEnrichment = async (
-    contentType: ContentType,
+    tagId: string,
     text: string
   ): Promise<void> => {
     settings$.set((prev) => ({
       ...prev,
       extraEnrichment: {
         ...prev.extraEnrichment,
-        [contentType]: text,
+        [tagId]: text,
       },
     }));
 
@@ -309,6 +367,36 @@ export function createSettingsStore(
     return settings$.get().extraEnrichment;
   };
 
+  /**
+   * Gets the last used form values for adding new entries.
+   */
+  const getLastUsedFormValues = () => {
+    const current = settings$.get();
+    return {
+      language: current.lastUsedLanguage || current.defaultLanguage || 'en',
+      categories: current.lastUsedCategories || [],
+      extraEnrichment: current.lastUsedExtraEnrichment || '',
+    };
+  };
+
+  /**
+   * Saves the last used form values for adding new entries.
+   */
+  const setLastUsedFormValues = async (values: {
+    language?: string;
+    categories?: string[];
+    extraEnrichment?: string;
+  }): Promise<void> => {
+    settings$.set((prev) => ({
+      ...prev,
+      ...(values.language !== undefined && { lastUsedLanguage: values.language }),
+      ...(values.categories !== undefined && { lastUsedCategories: values.categories }),
+      ...(values.extraEnrichment !== undefined && { lastUsedExtraEnrichment: values.extraEnrichment }),
+    }));
+
+    await persistSettings();
+  };
+
   return {
     settings$,
     init,
@@ -320,8 +408,12 @@ export function createSettingsStore(
     getProviderById,
     reset,
     getExtraEnrichment,
+    getExtraEnrichmentPlaceholder,
+    getCombinedEnrichmentFromTags,
     setExtraEnrichment,
     getExtraEnrichmentPrefs,
+    getLastUsedFormValues,
+    setLastUsedFormValues,
   };
 }
 

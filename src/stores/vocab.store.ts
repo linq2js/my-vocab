@@ -38,8 +38,9 @@
  */
 
 import { atom } from 'atomirx';
-import type { Vocabulary, ContentType } from '../types/vocabulary';
+import type { Vocabulary } from '../types/vocabulary';
 import { storageService, type StorageService } from '../services/storage.service';
+import { isPredefinedTag } from '../constants/predefinedTags';
 
 /**
  * Filter options for querying vocabulary items.
@@ -47,9 +48,11 @@ import { storageService, type StorageService } from '../services/storage.service
 export interface VocabFilterOptions {
   /** Filter by language code (e.g., 'en', 'fr') */
   language?: string;
-  /** Filter by content type */
-  contentType?: ContentType;
-  /** Filter by tag (items must contain this tag) */
+  /** Filter by predefined tags (items must have at least one of these) */
+  predefinedTags?: string[];
+  /** Filter for items with no predefined tags */
+  noPredefinedTag?: boolean;
+  /** Filter by custom tag (items must contain this tag) */
   tag?: string;
   /** Search text (matches against text and description, case-insensitive) */
   searchText?: string;
@@ -85,7 +88,7 @@ export interface VocabStore {
    * @param vocab - The vocabulary item to add (id and dates optional)
    * @returns Promise resolving when item is added and persisted
    */
-  add: (vocab: Partial<Vocabulary> & Pick<Vocabulary, 'text' | 'language' | 'contentType' | 'tags'>) => Promise<void>;
+  add: (vocab: Partial<Vocabulary> & Pick<Vocabulary, 'text' | 'language' | 'tags'>) => Promise<void>;
 
   /**
    * Updates an existing vocabulary item.
@@ -184,7 +187,7 @@ export function createVocabStore(options: VocabStoreOptions = {}): VocabStore {
    * Adds a new vocabulary item.
    */
   const add = async (
-    vocab: Partial<Vocabulary> & Pick<Vocabulary, 'text' | 'language' | 'contentType' | 'tags'>
+    vocab: Partial<Vocabulary> & Pick<Vocabulary, 'text' | 'language' | 'tags'>
   ): Promise<void> => {
     const now = new Date();
     const newVocab: Vocabulary = {
@@ -193,11 +196,12 @@ export function createVocabStore(options: VocabStoreOptions = {}): VocabStore {
       description: vocab.description,
       tags: vocab.tags,
       language: vocab.language,
-      contentType: vocab.contentType,
       definition: vocab.definition,
       ipa: vocab.ipa,
       examples: vocab.examples,
       partOfSpeech: vocab.partOfSpeech,
+      forms: vocab.forms,
+      extra: vocab.extra,
       createdAt: vocab.createdAt instanceof Date ? vocab.createdAt : now,
       updatedAt: vocab.updatedAt instanceof Date ? vocab.updatedAt : now,
     };
@@ -263,8 +267,20 @@ export function createVocabStore(options: VocabStoreOptions = {}): VocabStore {
       result = result.filter((v) => v.language === options.language);
     }
 
-    if (options.contentType) {
-      result = result.filter((v) => v.contentType === options.contentType);
+    // Filter by predefined tags (items must have at least one of the selected predefined tags)
+    if (options.predefinedTags && options.predefinedTags.length > 0) {
+      result = result.filter((v) => {
+        const itemPredefinedTags = v.tags.filter(isPredefinedTag);
+        return options.predefinedTags!.some((tag) => itemPredefinedTags.includes(tag));
+      });
+    }
+
+    // Filter for items with no predefined tags
+    if (options.noPredefinedTag) {
+      result = result.filter((v) => {
+        const itemPredefinedTags = v.tags.filter(isPredefinedTag);
+        return itemPredefinedTags.length === 0;
+      });
     }
 
     if (options.tag) {

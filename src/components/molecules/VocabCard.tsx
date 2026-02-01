@@ -1,10 +1,9 @@
-import { HTMLAttributes, useState } from 'react';
+import { HTMLAttributes, useState, useMemo } from 'react';
 import { Tag } from '../atoms/Tag';
-import { Badge } from '../atoms/Badge';
 import { Button } from '../atoms/Button';
 import { Icon } from '../atoms/Icon';
 import type { Vocabulary } from '../../types/vocabulary';
-import { getContentTypeAbbr, getContentTypeLabel } from '../../constants/contentTypes';
+import { separateTags, getPredefinedTag, matchPartOfSpeechToTag } from '../../constants/predefinedTags';
 import { useSpeech } from '../../hooks/useSpeech';
 
 /**
@@ -20,19 +19,6 @@ export interface VocabCardProps extends Omit<HTMLAttributes<HTMLElement>, 'onCli
   /** Callback when delete button is clicked */
   onDelete?: (vocabulary: Vocabulary) => void;
 }
-
-/**
- * Get badge variant based on content type
- */
-const getContentTypeBadgeVariant = (contentType: Vocabulary['contentType']): 'primary' | 'success' | 'warning' | 'info' => {
-  const variants: Record<Vocabulary['contentType'], 'primary' | 'success' | 'warning' | 'info'> = {
-    vocabulary: 'primary',
-    idiom: 'success',
-    'phrasal-verb': 'warning',
-    quote: 'info',
-  };
-  return variants[contentType];
-};
 
 /**
  * Maps form keys to human-readable labels.
@@ -96,7 +82,6 @@ export const VocabCard = ({
     ipa,
     examples,
     tags,
-    contentType,
     partOfSpeech,
     description,
     language,
@@ -104,11 +89,26 @@ export const VocabCard = ({
     extra,
   } = vocabulary;
 
+  // Separate predefined and custom tags
+  const { predefined: predefinedTags, custom: customTags } = useMemo(
+    () => separateTags(tags || []),
+    [tags]
+  );
+
   const hasExamples = examples && examples.length > 0;
-  const hasTags = tags && tags.length > 0;
+  const hasCustomTags = customTags && customTags.length > 0;
   const hasForms = forms && Object.keys(forms).length > 0;
   const hasExtra = extra && Object.keys(extra).length > 0;
-  const hasExpandableContent = hasExamples || hasTags || definition || hasForms || hasExtra;
+  const hasExpandableContent = hasExamples || hasCustomTags || definition || hasForms || hasExtra;
+
+  // Check if partOfSpeech is redundant with selected categories
+  // e.g., if partOfSpeech is "idiom" and Idiom category is selected, don't show partOfSpeech
+  const showPartOfSpeech = useMemo(() => {
+    if (!partOfSpeech) return false;
+    const matchedTag = matchPartOfSpeechToTag(partOfSpeech);
+    // Show partOfSpeech only if it doesn't match any of the selected predefined tags
+    return !matchedTag || !predefinedTags.includes(matchedTag);
+  }, [partOfSpeech, predefinedTags]);
 
   /**
    * Toggle expanded state
@@ -179,18 +179,8 @@ export const VocabCard = ({
       {/* COLLAPSED VIEW */}
       {!isExpanded && (
         <div className="space-y-1">
-          {/* Header Row: Badge | Text | Actions (all inline) */}
+          {/* Header Row: Text | Actions (all inline) */}
           <div className="flex items-center gap-2">
-            {/* Content Type Badge (circular for single char) */}
-            <Badge
-              variant={getContentTypeBadgeVariant(contentType)}
-              size="sm"
-              circular
-              title={getContentTypeLabel(contentType)}
-            >
-              {getContentTypeAbbr(contentType)}
-            </Badge>
-
             {/* Text - grows to fill space */}
             <h3 
               className="flex-1 font-bold text-gray-900 dark:text-gray-100 text-lg truncate"
@@ -237,7 +227,7 @@ export const VocabCard = ({
             </div>
           </div>
           
-          {/* IPA, Speak Button, and Part of Speech */}
+          {/* IPA, Speak Button, Part of Speech, and Categories */}
           <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
             {ipa && (
               <span data-testid="vocab-ipa" className="font-mono">
@@ -255,8 +245,17 @@ export const VocabCard = ({
                 <Icon name="volume" size="sm" />
               </button>
             )}
-            {partOfSpeech && (
+            {showPartOfSpeech && (
               <span className="italic">{partOfSpeech}</span>
+            )}
+            {/* Predefined Tags as text */}
+            {predefinedTags.length > 0 && (
+              <>
+                {(ipa || showPartOfSpeech) && <span className="text-gray-300 dark:text-gray-600">·</span>}
+                <span className="text-gray-500 dark:text-gray-400">
+                  {predefinedTags.map(tagId => getPredefinedTag(tagId)?.label).filter(Boolean).join(', ')}
+                </span>
+              </>
             )}
           </div>
 
@@ -275,8 +274,8 @@ export const VocabCard = ({
       {/* EXPANDED VIEW */}
       {isExpanded && !compact && (
         <div className="space-y-3">
-          {/* Action Bar - Top (right-aligned) */}
-          <div className="flex items-center justify-end gap-1">
+          {/* Action Bar - Top (right-aligned, minimal bottom spacing) */}
+          <div className="flex items-center justify-end gap-1 -mb-2">
             {/* Collapse Button */}
             <button
               onClick={toggleExpanded}
@@ -310,23 +309,12 @@ export const VocabCard = ({
             )}
           </div>
 
-          {/* Badge | Text (inline, bigger font) */}
-          <div className="flex items-center gap-3">
-            {/* Content Type Badge (circular for single char) */}
-            <Badge
-              variant={getContentTypeBadgeVariant(contentType)}
-              size="md"
-              circular
-              title={getContentTypeLabel(contentType)}
-            >
-              {getContentTypeAbbr(contentType)}
-            </Badge>
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {text}
-            </h3>
-          </div>
+          {/* Text (bigger font) */}
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            {text}
+          </h3>
 
-          {/* IPA, Speak Button, and Part of Speech */}
+          {/* IPA, Speak Button, Part of Speech, and Categories */}
           <div className="flex items-center gap-2 text-base text-gray-500 dark:text-gray-400">
             {ipa && (
               <span data-testid="vocab-ipa" className="font-mono">
@@ -344,8 +332,17 @@ export const VocabCard = ({
                 <Icon name="volume" size="sm" />
               </button>
             )}
-            {partOfSpeech && (
+            {showPartOfSpeech && (
               <span className="italic">{partOfSpeech}</span>
+            )}
+            {/* Predefined Tags as text */}
+            {predefinedTags.length > 0 && (
+              <>
+                {(ipa || showPartOfSpeech) && <span className="text-gray-300 dark:text-gray-600">·</span>}
+                <span className="text-gray-500 dark:text-gray-400">
+                  {predefinedTags.map(tagId => getPredefinedTag(tagId)?.label).filter(Boolean).join(', ')}
+                </span>
+              </>
             )}
           </div>
 
@@ -420,10 +417,10 @@ export const VocabCard = ({
             </div>
           )}
 
-          {/* Tags */}
-          {hasTags && (
+          {/* Custom Tags */}
+          {hasCustomTags && (
             <div className="flex flex-wrap gap-1.5 pt-2">
-              {tags.map((tag) => (
+              {customTags.map((tag) => (
                 <Tag key={tag} size="sm" variant="default">
                   {tag}
                 </Tag>
@@ -459,7 +456,7 @@ export const VocabCard = ({
 
             {/* Message */}
             <p className="text-sm text-gray-600 dark:text-gray-400 text-center mb-6">
-              This action cannot be undone. This will permanently delete this {getContentTypeLabel(contentType).toLowerCase()} from your collection.
+              This action cannot be undone. This will permanently delete this entry from your collection.
             </p>
 
             {/* Actions */}

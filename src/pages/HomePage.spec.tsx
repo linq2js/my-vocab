@@ -23,7 +23,7 @@ vi.mock('../stores/ui.store', () => ({
       get: vi.fn(() => ''),
     },
     filters$: {
-      get: vi.fn(() => ({ language: null, contentTypes: [], tags: [] })),
+      get: vi.fn(() => ({ language: null, predefinedTags: [], noPredefinedTag: false, tags: [] })),
     },
     modalState$: {
       get: vi.fn(() => ({ isOpen: false, type: null, data: null })),
@@ -62,9 +62,8 @@ describe('HomePage', () => {
       id: 'vocab_1',
       text: 'serendipity',
       description: 'A pleasant surprise',
-      tags: ['positive'],
+      tags: ['vocabulary', 'positive'],
       language: 'en',
-      contentType: 'vocabulary',
       definition: 'The occurrence of events by chance in a happy way',
       ipa: '/ˌserənˈdipədē/',
       examples: ['Finding that book was pure serendipity'],
@@ -76,9 +75,8 @@ describe('HomePage', () => {
       id: 'vocab_2',
       text: 'ephemeral',
       description: 'Short-lived',
-      tags: ['time'],
+      tags: ['vocabulary', 'time'],
       language: 'en',
-      contentType: 'vocabulary',
       definition: 'Lasting for a very short time',
       ipa: '/əˈfem(ə)rəl/',
       examples: ['The ephemeral beauty of cherry blossoms'],
@@ -226,7 +224,8 @@ describe('HomePage', () => {
     it('should filter vocabularies based on filters', async () => {
       vi.mocked(uiStore.filters$.get).mockReturnValue({
         language: 'en',
-        contentTypes: [],
+        predefinedTags: [],
+        noPredefinedTag: false,
         tags: [],
       });
       
@@ -265,7 +264,7 @@ describe('HomePage', () => {
       await renderAndWait();
       
       expect(screen.getByLabelText(/filter by language/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/filter by content type/i)).toBeInTheDocument();
+      // Content type filter is now handled via predefined tags filter
     });
   });
 });

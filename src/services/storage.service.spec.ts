@@ -11,9 +11,8 @@ describe('storageService', () => {
     id: 'test-id-1',
     text: 'serendipity',
     description: 'A happy accident',
-    tags: ['positive', 'rare'],
+    tags: ['vocabulary', 'positive', 'rare'],
     language: 'en',
-    contentType: 'vocabulary',
     definition: 'The occurrence of events by chance in a happy way',
     ipa: '/ˌserənˈdɪpɪti/',
     examples: ['Finding that book was pure serendipity.'],
@@ -135,21 +134,6 @@ describe('storageService', () => {
       });
     });
 
-    describe('getVocabulariesByContentType', () => {
-      it('should return vocabularies filtered by content type', async () => {
-        const idiom: Vocabulary = {
-          ...mockVocabulary,
-          id: 'idiom-1',
-          text: 'break a leg',
-          contentType: 'idiom',
-        };
-        await service.addVocabulary(mockVocabulary);
-        await service.addVocabulary(idiom);
-        const result = await service.getVocabulariesByContentType('idiom');
-        expect(result).toHaveLength(1);
-        expect(result[0]?.contentType).toBe('idiom');
-      });
-    });
   });
 
   describe('GPT cache operations', () => {
