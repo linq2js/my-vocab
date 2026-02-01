@@ -80,9 +80,9 @@ export const AddVocabPage = (): React.ReactElement => {
 
   // Build initial data from URL parameters
   const initialData = useMemo(() => ({
-    contentType: config.contentType,
+    contentType: config?.contentType ?? 'vocabulary',
     text: textParam,
-  } as Vocabulary), [config.contentType, textParam]);
+  } as Vocabulary), [config?.contentType, textParam]);
 
   // Loading state for save operation
   const [isSaving, setIsSaving] = useState(false);
@@ -150,18 +150,18 @@ export const AddVocabPage = (): React.ReactElement => {
               <Icon name="chevron-left" size="md" />
             </Link>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {config.title}
+              {config?.title ?? 'Add Vocabulary'}
             </h2>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 ml-12">
-            {config.description}
+            {config?.description ?? 'Add a new word or phrase to your collection.'}
           </p>
         </div>
 
         {/* Form Card */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <VocabForm
-            key={`${config.contentType}-${textParam}`}
+            key={`${config?.contentType ?? 'vocabulary'}-${textParam}`}
             initialData={initialData}
             onSubmit={handleSubmit}
             onCancel={handleCancel}

@@ -196,19 +196,6 @@ export const ApiKeyInput = ({
     .filter(Boolean)
     .join(' ');
 
-  // Build toggle button position classes
-  const togglePositionClasses = hasTestButton
-    ? size === 'sm'
-      ? 'right-16'
-      : size === 'lg'
-        ? 'right-20'
-        : 'right-18'
-    : size === 'sm'
-      ? 'right-2'
-      : size === 'lg'
-        ? 'right-3'
-        : 'right-2.5';
-
   // Get aria-describedby value
   const getAriaDescribedBy = (): string | undefined => {
     const describedBy: string[] = [];

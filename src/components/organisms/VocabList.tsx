@@ -6,8 +6,7 @@ import { Button } from '../atoms/Button';
 import type { Vocabulary } from '../../types/vocabulary';
 import { 
   ContentType, 
-  getContentTypeDisplay,
-  type ContentTypeDisplay 
+  getContentTypeDisplay 
 } from '../../constants/contentTypes';
 
 /**

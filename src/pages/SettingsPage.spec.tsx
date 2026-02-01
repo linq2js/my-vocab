@@ -4,7 +4,6 @@ import { MemoryRouter } from 'react-router-dom';
 import { SettingsPage } from './SettingsPage';
 import { settingsStore } from '../stores/settings.store';
 import type { AppSettings } from '../types/settings';
-import type { GptProviderId } from '../types/gpt';
 
 // Mock the settings store
 vi.mock('../stores/settings.store', () => ({

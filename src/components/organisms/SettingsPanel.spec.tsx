@@ -1,9 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SettingsPanel } from './SettingsPanel';
 import type { AppSettings } from '../../types/settings';
-import type { GptProviderId } from '../../types/gpt';
 
 // Mock settings for testing
 const mockSettings: AppSettings = {
@@ -154,7 +153,7 @@ describe('SettingsPanel', () => {
 
     // Find the test button for OpenAI (which has an API key)
     const testButtons = screen.getAllByRole('button', { name: /Test/i });
-    await user.click(testButtons[0]);
+    await user.click(testButtons[0]!);
 
     expect(mockOnTestApiKey).toHaveBeenCalledWith('openai');
   });

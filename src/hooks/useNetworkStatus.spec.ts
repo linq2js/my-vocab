@@ -7,11 +7,11 @@ import { renderHook, act } from '@testing-library/react';
 import { useNetworkStatus, isNetworkError, getNetworkErrorMessage } from './useNetworkStatus';
 
 describe('useNetworkStatus', () => {
-  const originalNavigator = global.navigator;
+  const originalNavigator = globalThis.navigator;
   
   beforeEach(() => {
     // Mock navigator.onLine
-    Object.defineProperty(global, 'navigator', {
+    Object.defineProperty(globalThis, 'navigator', {
       value: { onLine: true },
       writable: true,
       configurable: true,
@@ -19,7 +19,7 @@ describe('useNetworkStatus', () => {
   });
 
   afterEach(() => {
-    Object.defineProperty(global, 'navigator', {
+    Object.defineProperty(globalThis, 'navigator', {
       value: originalNavigator,
       writable: true,
       configurable: true,
@@ -107,10 +107,10 @@ describe('isNetworkError', () => {
 });
 
 describe('getNetworkErrorMessage', () => {
-  const originalNavigator = global.navigator;
+  const originalNavigator = globalThis.navigator;
 
   beforeEach(() => {
-    Object.defineProperty(global, 'navigator', {
+    Object.defineProperty(globalThis, 'navigator', {
       value: { onLine: true },
       writable: true,
       configurable: true,
@@ -118,7 +118,7 @@ describe('getNetworkErrorMessage', () => {
   });
 
   afterEach(() => {
-    Object.defineProperty(global, 'navigator', {
+    Object.defineProperty(globalThis, 'navigator', {
       value: originalNavigator,
       writable: true,
       configurable: true,
@@ -126,7 +126,7 @@ describe('getNetworkErrorMessage', () => {
   });
 
   it('should return offline message when navigator.onLine is false', () => {
-    Object.defineProperty(global.navigator, 'onLine', { value: false });
+    Object.defineProperty(globalThis.navigator, 'onLine', { value: false });
     
     const message = getNetworkErrorMessage(new Error('any error'));
     expect(message).toBe('You are offline. Please check your internet connection.');

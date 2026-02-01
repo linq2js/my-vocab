@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TagInput } from './TagInput';
 
@@ -165,7 +165,7 @@ describe('TagInput', () => {
       render(<TagInput {...defaultProps} />);
       
       const removeButtons = screen.getAllByRole('button', { name: /remove/i });
-      await user.click(removeButtons[0]);
+      await user.click(removeButtons[0]!);
       
       expect(defaultProps.onChange).toHaveBeenCalledWith(['typescript']);
     });

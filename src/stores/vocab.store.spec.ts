@@ -65,6 +65,13 @@ function createMockStorageService(
     getCachedGptResponse: vi.fn(async () => undefined),
     cacheGptResponse: vi.fn(async () => {}),
     clearGptCache: vi.fn(async () => {}),
+    clearAllVocabularies: vi.fn(async () => {
+      vocabs = [];
+    }),
+    clearAllData: vi.fn(async () => {
+      vocabs = [];
+    }),
+    getVocabularyCount: vi.fn(async () => vocabs.length),
     close: vi.fn(),
   };
 }

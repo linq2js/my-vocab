@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { VocabForm } from './VocabForm';
 import type { Vocabulary } from '../../types/vocabulary';
@@ -171,7 +171,7 @@ describe('VocabForm', () => {
         expect(mockOnSubmit).toHaveBeenCalledTimes(1);
       });
 
-      const submittedData = mockOnSubmit.mock.calls[0][0];
+      const submittedData = mockOnSubmit.mock.calls[0]![0];
       expect(submittedData.text).toBe('serendipity');
       expect(submittedData.description).toBe('A happy accident');
       expect(submittedData.language).toBe('en');
@@ -198,7 +198,7 @@ describe('VocabForm', () => {
         expect(mockOnSubmit).toHaveBeenCalledTimes(1);
       });
 
-      const submittedData = mockOnSubmit.mock.calls[0][0];
+      const submittedData = mockOnSubmit.mock.calls[0]![0];
       expect(submittedData.tags).toContain('positive');
     });
 
@@ -229,7 +229,7 @@ describe('VocabForm', () => {
         expect(mockOnSubmit).toHaveBeenCalledTimes(1);
       });
 
-      const submittedData = mockOnSubmit.mock.calls[0][0];
+      const submittedData = mockOnSubmit.mock.calls[0]![0];
       expect(submittedData.id).toBe('existing-id');
       expect(submittedData.createdAt).toEqual(existingVocab.createdAt);
     });
