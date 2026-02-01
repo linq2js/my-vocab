@@ -49,7 +49,7 @@ describe('SettingsPage', () => {
     extraEnrichment: {},
     lastUsedLanguage: 'en',
     lastUsedCategories: [],
-    lastUsedExtraEnrichment: '',
+    lastUsedExtraEnrichment: {},
   };
 
   /**

@@ -155,16 +155,28 @@ export const VocabForm = ({
     appliedLastUsed.current = true;
     
     // Apply last-used values
-    if (settings.lastUsedLanguage) {
-      setLanguage(settings.lastUsedLanguage);
+    const lastUsed = settingsStore.getLastUsedFormValues(settings.lastUsedLanguage);
+    if (lastUsed.language) {
+      setLanguage(lastUsed.language);
     }
-    if (settings.lastUsedCategories && settings.lastUsedCategories.length > 0) {
-      setSelectedPredefinedTags(settings.lastUsedCategories);
+    if (lastUsed.categories && lastUsed.categories.length > 0) {
+      setSelectedPredefinedTags(lastUsed.categories);
     }
-    if (settings.lastUsedExtraEnrichment) {
-      setExtraRequest(settings.lastUsedExtraEnrichment);
+    if (lastUsed.extraEnrichment) {
+      setExtraRequest(lastUsed.extraEnrichment);
     }
   }, [isEditMode, settings]);
+
+  // Update extra enrichment when language changes (load cached value for new language)
+  const prevLanguageRef = useRef(language);
+  useEffect(() => {
+    if (isEditMode) return;
+    if (prevLanguageRef.current === language) return;
+    
+    prevLanguageRef.current = language;
+    const lastUsed = settingsStore.getLastUsedFormValues(language);
+    setExtraRequest(lastUsed.extraEnrichment || '');
+  }, [language, isEditMode]);
 
   // Get combined enrichment placeholder from selected predefined tags
   const extraPlaceholder = useMemo(() => {
@@ -240,7 +252,7 @@ export const VocabForm = ({
         settingsStore.setLastUsedFormValues({
           language,
           categories: selectedPredefinedTags,
-          extraEnrichment: extraRequest,
+          extraEnrichment: { language, text: extraRequest },
         }).catch(() => {
           // Ignore errors - just a convenience feature
         });
@@ -507,7 +519,7 @@ export const VocabForm = ({
           htmlFor={`${formId}-description`}
           className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
         >
-          Description
+          My Notes
         </label>
         <textarea
           id={`${formId}-description`}

@@ -165,9 +165,10 @@ export interface SettingsStore {
   /**
    * Gets the last used form values for adding new entries.
    *
+   * @param forLanguage - Language code to get extra enrichment for
    * @returns Object with lastUsedLanguage, lastUsedCategories, lastUsedExtraEnrichment
    */
-  getLastUsedFormValues: () => {
+  getLastUsedFormValues: (forLanguage?: string) => {
     language: string;
     categories: string[];
     extraEnrichment: string;
@@ -182,7 +183,7 @@ export interface SettingsStore {
   setLastUsedFormValues: (values: {
     language?: string;
     categories?: string[];
-    extraEnrichment?: string;
+    extraEnrichment?: { language: string; text: string };
   }) => Promise<void>;
 }
 
@@ -369,30 +370,51 @@ export function createSettingsStore(
 
   /**
    * Gets the last used form values for adding new entries.
+   * Extra enrichment is retrieved for the specified language.
    */
-  const getLastUsedFormValues = () => {
+  const getLastUsedFormValues = (forLanguage?: string) => {
     const current = settings$.get();
+    const lang = forLanguage || current.lastUsedLanguage || current.defaultLanguage || 'en';
+    const extraEnrichmentMap = current.lastUsedExtraEnrichment || {};
+    
     return {
       language: current.lastUsedLanguage || current.defaultLanguage || 'en',
       categories: current.lastUsedCategories || [],
-      extraEnrichment: current.lastUsedExtraEnrichment || '',
+      extraEnrichment: (typeof extraEnrichmentMap === 'object' ? extraEnrichmentMap[lang] : '') || '',
     };
   };
 
   /**
    * Saves the last used form values for adding new entries.
+   * Extra enrichment is saved per language.
    */
   const setLastUsedFormValues = async (values: {
     language?: string;
     categories?: string[];
-    extraEnrichment?: string;
+    extraEnrichment?: { language: string; text: string };
   }): Promise<void> => {
-    settings$.set((prev) => ({
-      ...prev,
-      ...(values.language !== undefined && { lastUsedLanguage: values.language }),
-      ...(values.categories !== undefined && { lastUsedCategories: values.categories }),
-      ...(values.extraEnrichment !== undefined && { lastUsedExtraEnrichment: values.extraEnrichment }),
-    }));
+    settings$.set((prev) => {
+      const updates: Partial<AppSettings> = {};
+      
+      if (values.language !== undefined) {
+        updates.lastUsedLanguage = values.language;
+      }
+      if (values.categories !== undefined) {
+        updates.lastUsedCategories = values.categories;
+      }
+      if (values.extraEnrichment !== undefined) {
+        // Ensure lastUsedExtraEnrichment is an object (handle migration from string)
+        const currentMap = typeof prev.lastUsedExtraEnrichment === 'object' 
+          ? prev.lastUsedExtraEnrichment 
+          : {};
+        updates.lastUsedExtraEnrichment = {
+          ...currentMap,
+          [values.extraEnrichment.language]: values.extraEnrichment.text,
+        };
+      }
+      
+      return { ...prev, ...updates };
+    });
 
     await persistSettings();
   };

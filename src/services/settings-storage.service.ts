@@ -182,7 +182,10 @@ export function settingsStorageService(): SettingsStorageService {
         extraEnrichment: stored.settings.extraEnrichment ?? {},
         lastUsedLanguage: stored.settings.lastUsedLanguage ?? 'en',
         lastUsedCategories: stored.settings.lastUsedCategories ?? [],
-        lastUsedExtraEnrichment: stored.settings.lastUsedExtraEnrichment ?? '',
+        // Handle migration from string to object
+        lastUsedExtraEnrichment: typeof stored.settings.lastUsedExtraEnrichment === 'object' 
+          ? stored.settings.lastUsedExtraEnrichment 
+          : {},
       };
     } catch {
       // Return default settings on any error

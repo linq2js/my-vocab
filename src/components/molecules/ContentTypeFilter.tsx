@@ -16,37 +16,11 @@
  */
 
 import type { ReactElement } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useSelector } from 'atomirx/react';
 import { uiStore } from '../../stores/ui.store';
-import { PREDEFINED_TAGS, NO_PREDEFINED_TAG_FILTER } from '../../constants/predefinedTags';
-
-/**
- * Category chip configuration.
- */
-interface CategoryChip {
-  /** Unique identifier */
-  id: string;
-  /** Full display label */
-  label: string;
-  /** Abbreviated label (for small screens) */
-  abbr: string;
-}
-
-/**
- * Available category chips.
- * "All" is a special option that clears all selections.
- * "No Category" filters entries without any predefined tags.
- */
-const CATEGORY_CHIPS: CategoryChip[] = [
-  { id: 'all', label: 'All', abbr: 'All' },
-  ...PREDEFINED_TAGS.map((tag) => ({
-    id: tag.id,
-    label: tag.label,
-    abbr: tag.abbr,
-  })),
-  { id: NO_PREDEFINED_TAG_FILTER, label: 'No Category', abbr: '∅' },
-];
+import { vocabStore } from '../../stores/vocab.store';
+import { PREDEFINED_TAGS, NO_PREDEFINED_TAG_FILTER, isPredefinedTag } from '../../constants/predefinedTags';
 
 /**
  * Props for the CategoryFilter component.
@@ -80,6 +54,42 @@ export const ContentTypeFilter = ({
   const filters = useSelector(uiStore.filters$);
   const selectedTags = filters.predefinedTags;
   const noPredefinedTag = filters.noPredefinedTag;
+
+  // Get all vocabulary items to determine available categories
+  const allItems = useSelector(vocabStore.items$);
+
+  // Compute available categories based on existing entries
+  const availableChips = useMemo(() => {
+    const availableTags = new Set<string>();
+    let hasUncategorized = false;
+
+    for (const item of allItems) {
+      const itemPredefinedTags = (item.tags || []).filter(isPredefinedTag);
+      if (itemPredefinedTags.length === 0) {
+        hasUncategorized = true;
+      } else {
+        itemPredefinedTags.forEach((tag) => availableTags.add(tag));
+      }
+    }
+
+    const chips: { id: string; label: string; abbr: string }[] = [
+      { id: 'all', label: 'All', abbr: 'All' },
+    ];
+
+    // Only add predefined tags that have entries
+    for (const tag of PREDEFINED_TAGS) {
+      if (availableTags.has(tag.id)) {
+        chips.push({ id: tag.id, label: tag.label, abbr: tag.abbr });
+      }
+    }
+
+    // Only add "No Category" if there are uncategorized entries
+    if (hasUncategorized) {
+      chips.push({ id: NO_PREDEFINED_TAG_FILTER, label: 'No Category', abbr: '∅' });
+    }
+
+    return chips;
+  }, [allItems]);
 
   // Check if "All" is effectively selected (no specific tags selected and no noPredefinedTag)
   const isAllSelected = selectedTags.length === 0 && !noPredefinedTag;
@@ -193,7 +203,7 @@ export const ContentTypeFilter = ({
       role="group"
       aria-label="Filter by category"
     >
-      {CATEGORY_CHIPS.map((chip) => (
+      {availableChips.map((chip) => (
         <button
           key={chip.id}
           type="button"

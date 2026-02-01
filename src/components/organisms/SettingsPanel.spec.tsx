@@ -16,7 +16,7 @@ const mockSettings: AppSettings = {
   extraEnrichment: {},
   lastUsedLanguage: 'en',
   lastUsedCategories: [],
-  lastUsedExtraEnrichment: '',
+  lastUsedExtraEnrichment: {},
 };
 
 describe('SettingsPanel', () => {

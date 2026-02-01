@@ -346,6 +346,17 @@ export const VocabCard = ({
             )}
           </div>
 
+          {/* Custom Tags - shown right below header */}
+          {hasCustomTags && (
+            <div className="flex flex-wrap gap-1.5">
+              {customTags.map((tag) => (
+                <Tag key={tag} size="sm" variant="default">
+                  {tag}
+                </Tag>
+              ))}
+            </div>
+          )}
+
           {/* Extra Fields (user-requested custom enrichment) - displayed FIRST */}
           {hasExtra && (
             <div data-testid="vocab-extra" className="border-b border-gray-200 dark:border-gray-600 pb-3 mb-3">
@@ -364,14 +375,26 @@ export const VocabCard = ({
             </div>
           )}
 
-          {/* Definition */}
-          {(definition || description) && (
+          {/* User Description (Notes) */}
+          {description && (
+            <div data-testid="vocab-description">
+              <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                Notes
+              </h4>
+              <p className="text-base text-gray-700 dark:text-gray-300">
+                {description}
+              </p>
+            </div>
+          )}
+
+          {/* AI Definition */}
+          {definition && (
             <div data-testid="vocab-definition">
               <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
                 Definition
               </h4>
               <p className="text-base text-gray-700 dark:text-gray-300">
-                {definition || description}
+                {definition}
               </p>
             </div>
           )}
@@ -408,25 +431,18 @@ export const VocabCard = ({
                 {examples.map((example, index) => (
                   <li
                     key={index}
-                    className="text-base text-gray-600 dark:text-gray-400 pl-3 border-l-2 border-gray-200 dark:border-gray-600"
+                    className="flex items-start gap-2 text-base text-gray-600 dark:text-gray-400 pl-3 border-l-2 border-gray-200 dark:border-gray-600"
                   >
-                    {example}
+                    <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded-full flex-shrink-0 mt-0.5">
+                      {index + 1}
+                    </span>
+                    <span>{example}</span>
                   </li>
                 ))}
               </ul>
             </div>
           )}
 
-          {/* Custom Tags */}
-          {hasCustomTags && (
-            <div className="flex flex-wrap gap-1.5 pt-2">
-              {customTags.map((tag) => (
-                <Tag key={tag} size="sm" variant="default">
-                  {tag}
-                </Tag>
-              ))}
-            </div>
-          )}
         </div>
       )}
 

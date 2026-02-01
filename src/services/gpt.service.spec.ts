@@ -41,7 +41,7 @@ describe('gptService', () => {
     extraEnrichment: {},
     lastUsedLanguage: 'en',
     lastUsedCategories: [],
-    lastUsedExtraEnrichment: '',
+    lastUsedExtraEnrichment: {},
   };
 
   beforeEach(() => {

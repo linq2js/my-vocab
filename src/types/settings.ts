@@ -62,8 +62,8 @@ export interface AppSettings {
   /** Last used predefined tag categories when adding entries */
   lastUsedCategories: string[];
   
-  /** Last used extra enrichment text when adding entries */
-  lastUsedExtraEnrichment: string;
+  /** Last used extra enrichment text per language (language code -> text) */
+  lastUsedExtraEnrichment: Record<string, string>;
 }
 
 /**
@@ -86,5 +86,5 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   extraEnrichment: {},
   lastUsedLanguage: 'en',
   lastUsedCategories: [],
-  lastUsedExtraEnrichment: '',
+  lastUsedExtraEnrichment: {},
 };
