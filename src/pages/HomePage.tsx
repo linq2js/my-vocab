@@ -114,9 +114,10 @@ export const HomePage = (): React.ReactElement => {
 
   /**
    * Handle delete vocabulary action.
+   * VocabCard already shows a confirmation dialog, so we directly delete here.
    */
   const handleDeleteVocabulary = useCallback((vocabulary: Vocabulary): void => {
-    uiStore.openModal('deleteVocab', vocabulary);
+    vocabStore.remove(vocabulary.id).catch(console.error);
   }, []);
 
   /**

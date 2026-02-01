@@ -30,9 +30,10 @@
  */
 
 import type { ReactElement } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useSelector } from 'atomirx/react';
 import { uiStore } from '../../stores/ui.store';
+import { vocabStore } from '../../stores/vocab.store';
 import { LANGUAGES } from '../../constants/languages';
 import { Icon } from '../atoms/Icon';
 import { Button } from '../atoms/Button';
@@ -121,10 +122,38 @@ export const FilterPanel = ({
 }: FilterPanelProps): ReactElement => {
   // Get current filters from store
   const filters = useSelector(uiStore.filters$);
+  
+  // Get all vocabulary items to determine available languages
+  const allItems = useSelector(vocabStore.items$);
 
   // Track part of speech locally (not in uiStore since it's not in UiFilters)
   // Use controlled value if provided, otherwise use empty string
   const partOfSpeechValue = controlledPartOfSpeech ?? '';
+
+  // Compute available languages based on actual vocabulary entries
+  const availableLanguages = useMemo(() => {
+    const languageCodes = new Set<string>();
+    for (const item of allItems) {
+      if (item.language) {
+        languageCodes.add(item.language);
+      }
+    }
+    // Filter LANGUAGES to only include those with entries, preserving original order
+    return LANGUAGES.filter((lang) => languageCodes.has(lang.code));
+  }, [allItems]);
+
+  // Compute available parts of speech based on actual vocabulary entries
+  const availablePartsOfSpeech = useMemo(() => {
+    const partsOfSpeech = new Set<string>();
+    for (const item of allItems) {
+      if (item.partOfSpeech) {
+        // Normalize to lowercase for matching
+        partsOfSpeech.add(item.partOfSpeech.toLowerCase());
+      }
+    }
+    // Filter options to only include those with entries, preserving original order
+    return PART_OF_SPEECH_OPTIONS.filter((opt) => partsOfSpeech.has(opt.value));
+  }, [allItems]);
 
   /**
    * Handle language filter change.
@@ -192,12 +221,12 @@ export const FilterPanel = ({
           id="filter-language"
           value={filters.language ?? ''}
           onChange={handleLanguageChange}
-          disabled={disabled}
+          disabled={disabled || availableLanguages.length === 0}
           className={selectClasses}
           aria-label="Filter by language"
         >
           <option value="">All Languages</option>
-          {LANGUAGES.map((lang) => (
+          {availableLanguages.map((lang) => (
             <option key={lang.code} value={lang.code}>
               {lang.name}
             </option>
@@ -217,12 +246,12 @@ export const FilterPanel = ({
           id="filter-part-of-speech"
           value={partOfSpeechValue}
           onChange={handlePartOfSpeechChange}
-          disabled={disabled}
+          disabled={disabled || availablePartsOfSpeech.length === 0}
           className={selectClasses}
           aria-label="Filter by part of speech"
         >
           <option value="">All Parts</option>
-          {PART_OF_SPEECH_OPTIONS.map((option) => (
+          {availablePartsOfSpeech.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>

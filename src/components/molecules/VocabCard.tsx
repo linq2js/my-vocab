@@ -183,10 +183,15 @@ export const VocabCard = ({
           <div className="flex items-center gap-2">
             {/* Text - grows to fill space */}
             <h3 
-              className="flex-1 font-bold text-gray-900 dark:text-gray-100 text-lg truncate"
+              className="flex-1 flex items-center gap-2 font-bold text-gray-900 dark:text-gray-100 text-lg truncate"
               title={text}
             >
-              {text}
+              {language && (
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase shrink-0">
+                  [{language}]
+                </span>
+              )}
+              <span className="truncate">{text}</span>
             </h3>
 
             {/* Action Section */}
@@ -310,7 +315,12 @@ export const VocabCard = ({
           </div>
 
           {/* Text (bigger font) */}
-          <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+          <h3 className="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-gray-100">
+            {language && (
+              <span className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase">
+                [{language}]
+              </span>
+            )}
             {text}
           </h3>
 
