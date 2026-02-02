@@ -603,7 +603,7 @@ export const TranslateModal = ({
                   className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none overflow-hidden"
                   style={{ minHeight: '60px', maxHeight: '200px' }}
                 />
-                {sourceText && (
+                {sourceText ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -616,6 +616,28 @@ export const TranslateModal = ({
                     aria-label="Clear text"
                   >
                     <Icon name="close" size="sm" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const text = await navigator.clipboard.readText();
+                        if (text) {
+                          setSourceText(text);
+                          if (textareaRef.current) {
+                            textareaRef.current.style.height = 'auto';
+                            textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
+                          }
+                        }
+                      } catch {
+                        // Clipboard access denied or not available
+                      }
+                    }}
+                    className="absolute top-2 right-2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+                    aria-label="Paste from clipboard"
+                  >
+                    <Icon name="clipboard" size="sm" />
                   </button>
                 )}
               </div>
@@ -643,7 +665,7 @@ export const TranslateModal = ({
                   className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none overflow-hidden text-sm leading-5"
                   style={{ minHeight: '38px', maxHeight: '150px' }}
                 />
-                {context && (
+                {context ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -656,6 +678,28 @@ export const TranslateModal = ({
                     aria-label="Clear context"
                   >
                     <Icon name="close" size="sm" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const text = await navigator.clipboard.readText();
+                        if (text) {
+                          setContext(text);
+                          if (contextTextareaRef.current) {
+                            contextTextareaRef.current.style.height = 'auto';
+                            contextTextareaRef.current.style.height = `${Math.min(contextTextareaRef.current.scrollHeight, 150)}px`;
+                          }
+                        }
+                      } catch {
+                        // Clipboard access denied or not available
+                      }
+                    }}
+                    className="absolute top-2 right-2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+                    aria-label="Paste from clipboard"
+                  >
+                    <Icon name="clipboard" size="sm" />
                   </button>
                 )}
               </div>
