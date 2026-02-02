@@ -151,6 +151,17 @@ export interface GptService {
   improveStylePrompt: (description: string) => Promise<string>;
 
   /**
+   * Explains the hidden/deeper meaning of text in the same language.
+   * Does not use caching as explanations may vary.
+   *
+   * @param text - The text to explain
+   * @param language - The language of the text (explanation will be in the same language)
+   * @returns Promise resolving to the explanation
+   * @throws Error if no provider is configured or API key is missing
+   */
+  explain: (text: string, language: string) => Promise<string>;
+
+  /**
    * Closes the underlying services.
    * Important for cleanup in tests.
    */
@@ -543,6 +554,54 @@ export function gptService(options: GptServiceOptions = {}): GptService {
   };
 
   /**
+   * Explains text with retry logic.
+   */
+  const explainWithRetry = async (
+    text: string,
+    language: string,
+    provider: IGptProvider
+  ): Promise<string> => {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await provider.explain(text, language);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        if (attempt < maxRetries - 1) {
+          const delayMs = calculateBackoffDelay(attempt, RETRY_DELAY_BASE_MS);
+          await delay(delayMs);
+        }
+      }
+    }
+
+    throw new Error(
+      `Failed to explain text after ${maxRetries} attempts: ${lastError?.message}`
+    );
+  };
+
+  /**
+   * Explains the hidden/deeper meaning of text in the same language.
+   * Does not use caching as explanations may vary.
+   */
+  const explain = async (text: string, language: string): Promise<string> => {
+    const trimmedText = text.trim();
+    if (!trimmedText) {
+      throw new Error("Text is required for explanation");
+    }
+
+    const trimmedLanguage = language.trim();
+    if (!trimmedLanguage) {
+      throw new Error("Language is required for explanation");
+    }
+
+    // No caching for explanations
+    const provider = await getActiveProvider();
+    return explainWithRetry(trimmedText, trimmedLanguage, provider);
+  };
+
+  /**
    * Closes the underlying services.
    */
   const close = (): void => {
@@ -556,6 +615,7 @@ export function gptService(options: GptServiceOptions = {}): GptService {
     translate,
     clearTranslationCache,
     improveStylePrompt,
+    explain,
     close,
   };
 }

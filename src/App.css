@@ -1,7 +1,6 @@
 /* Mobile-first PWA styles */
 html,
-body,
-#root {
+body {
   height: 100%;
   width: 100%;
   margin: 0;
@@ -9,6 +8,11 @@ body,
 }
 
 #root {
+  /* Use dynamic viewport height (dvh) for proper mobile browser chrome handling */
+  /* This automatically adjusts when address bar/tab bar shows or hides */
+  min-height: 100dvh;
+  min-height: -webkit-fill-available; /* Fallback for older Safari */
+  width: 100%;
   display: flex;
   flex-direction: column;
 }

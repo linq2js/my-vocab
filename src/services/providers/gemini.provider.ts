@@ -377,4 +377,75 @@ Return only the improved prompt text, nothing else.`;
 
     return content.trim();
   }
+
+  /**
+   * Explains the hidden/deeper meaning of text in the same language.
+   *
+   * @param text - The text to explain
+   * @param language - The language of the text (explanation will be in the same language)
+   * @returns Promise resolving to the explanation
+   * @throws Error if the API call fails
+   */
+  async explain(text: string, language: string): Promise<string> {
+    const url = `${GEMINI_API_BASE}/${this.model}:generateContent?key=${this.apiKey}`;
+
+    const prompt = `You are a language expert. Explain the hidden meaning, cultural context, nuances, or deeper significance of the following text. Your explanation should be in the same language as the input text (${language}).
+
+Consider:
+- Idioms, metaphors, or figurative language
+- Cultural references or context
+- Implied meanings or subtext
+- Tone and emotional undertones
+- Any wordplay or double meanings
+
+Text to explain:
+"${text}"
+
+Provide a clear, helpful explanation that reveals what the text really means beyond its literal interpretation.`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: prompt }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.5,
+          topP: 0.8,
+          topK: 40,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage =
+        (errorData as { error?: { message?: string } })?.error?.message ||
+        `${response.status} ${response.statusText}`;
+      throw new Error(`Gemini API error: ${errorMessage}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.candidates || data.candidates.length === 0) {
+      throw new Error('Gemini API returned no response');
+    }
+
+    const parts = data.candidates[0]?.content?.parts;
+    if (!parts || parts.length === 0) {
+      throw new Error('Gemini API returned empty content');
+    }
+
+    const content = parts[0]?.text;
+    if (!content) {
+      throw new Error('Gemini API returned empty content');
+    }
+
+    return content.trim();
+  }
 }

@@ -25,6 +25,7 @@ You MUST respond with a valid JSON object containing exactly these fields:
 - definition: A clear, concise dictionary definition for the PRIMARY/most common usage
 - ipa: The International Phonetic Alphabet pronunciation
 - type: The part of speech (noun, verb, adjective, etc.) or content type (idiom, phrasal verb, quote) for the PRIMARY usage
+- baseForm: The dictionary/base/lemma form of the word if the input is inflected. For verbs, return the infinitive (e.g., "running" → "run", "went" → "go"). For adjectives/adverbs, return the positive form (e.g., "better" → "good", "fastest" → "fast"). For nouns, return singular (e.g., "children" → "child"). Return null or omit if the input is already in base form or is a phrase/idiom.
 - examples: REQUIRED - An array of 2-3 example sentences demonstrating PRIMARY usage. This is MANDATORY for ALL content types including idioms, phrasal verbs, and quotes. For idioms and phrasal verbs, show them used naturally in context. For quotes, provide the original quote and context of when/how it was said.
 - forms: An object containing grammatical forms of the word for PRIMARY usage (only include applicable forms):
   - For verbs: past, pastParticiple, presentParticiple, thirdPerson
@@ -85,7 +86,7 @@ Also include these extra fields in the "extra" object: ${extraFields}`
 
   return `${basePrompt}${extraInstruction}
 
-Return a JSON object with definition, ipa, type, examples, forms, senses${extraFields?.trim() ? ', and extra' : ''}.`;
+Return a JSON object with definition, ipa, type, baseForm (if applicable), examples, forms, senses${extraFields?.trim() ? ', and extra' : ''}.`;
 }
 
 /**

@@ -345,4 +345,64 @@ Return only the improved prompt text, nothing else.`;
 
     return content.trim();
   }
+
+  /**
+   * Explains the hidden/deeper meaning of text in the same language.
+   *
+   * @param text - The text to explain
+   * @param language - The language of the text (explanation will be in the same language)
+   * @returns Promise resolving to the explanation
+   * @throws Error if the API call fails
+   */
+  async explain(text: string, language: string): Promise<string> {
+    const systemContent = `You are a language expert. Explain the hidden meaning, cultural context, nuances, or deeper significance of the given text. Your explanation should be in the same language as the input text (${language}).
+
+Consider:
+- Idioms, metaphors, or figurative language
+- Cultural references or context
+- Implied meanings or subtext
+- Tone and emotional undertones
+- Any wordplay or double meanings
+
+Provide a clear, helpful explanation that reveals what the text really means beyond its literal interpretation.`;
+
+    const userContent = `Explain the deeper meaning of this text:\n\n"${text}"`;
+
+    const response = await fetch(OPENAI_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: this.model,
+        messages: [
+          { role: 'system', content: systemContent },
+          { role: 'user', content: userContent },
+        ],
+        temperature: 0.5,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage =
+        (errorData as { error?: { message?: string } })?.error?.message ||
+        `${response.status} ${response.statusText}`;
+      throw new Error(`OpenAI API error: ${errorMessage}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.choices || data.choices.length === 0) {
+      throw new Error('OpenAI API returned no response');
+    }
+
+    const content = data.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('OpenAI API returned empty content');
+    }
+
+    return content.trim();
+  }
 }

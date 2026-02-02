@@ -1,7 +1,7 @@
-import type { VocabularyForms, ExtraEnrichment, WordSense } from './gpt';
+import type { VocabularyForms, ExtraEnrichment, WordSense, GptEnrichmentResponse } from './gpt';
 
 // Re-export types for convenience
-export type { VocabularyForms, ExtraEnrichment, WordSense } from './gpt';
+export type { VocabularyForms, ExtraEnrichment, WordSense, GptEnrichmentResponse } from './gpt';
 
 /**
  * Represents a vocabulary entry in the application.
@@ -53,6 +53,9 @@ export interface Vocabulary {
   
   /** Part of speech (noun, verb, adjective, etc.) */
   partOfSpeech?: string;
+  
+  /** Base/lemma/dictionary form if the text is an inflected form (e.g., "running" → "run") */
+  baseForm?: string;
   
   /** Grammatical forms (conjugations, plural, comparative, etc.) */
   forms?: VocabularyForms;

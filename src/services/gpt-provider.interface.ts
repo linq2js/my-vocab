@@ -106,4 +106,21 @@ export interface IGptProvider {
    * ```
    */
   improveStylePrompt(description: string): Promise<string>;
+
+  /**
+   * Explains the hidden/deeper meaning of text in the same language.
+   *
+   * @param text - The text to explain
+   * @param language - The language of the text (explanation will be in the same language)
+   * @returns Promise resolving to the explanation
+   * @throws Error if the API call fails
+   *
+   * @example
+   * ```typescript
+   * const explanation = await provider.explain('Break a leg!', 'en');
+   * console.log(explanation);
+   * // 'This is an idiom meaning "good luck", commonly used before performances...'
+   * ```
+   */
+  explain(text: string, language: string): Promise<string>;
 }

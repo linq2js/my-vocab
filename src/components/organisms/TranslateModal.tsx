@@ -29,6 +29,7 @@ import { Icon } from "../atoms/Icon";
 import { LANGUAGES } from "../../constants/languages";
 import { settingsStore } from "../../stores/settings.store";
 import { gptService } from "../../services/gpt.service";
+import { useSpeech } from "../../hooks";
 import type { TranslationStyle, TranslateResult } from "../../types/translation";
 
 /**
@@ -100,6 +101,10 @@ export const TranslateModal = ({
   const [translationError, setTranslationError] = useState<string | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
 
+  // Explanation state
+  const [explanationResult, setExplanationResult] = useState<string | null>(null);
+  const [isExplaining, setIsExplaining] = useState(false);
+
   // Style editing state
   const [isEditingStyle, setIsEditingStyle] = useState(false);
   const [editingStyleId, setEditingStyleId] = useState<string | null>(null);
@@ -121,6 +126,9 @@ export const TranslateModal = ({
   const nativeLanguage = settings.nativeLanguage || "en";
   const translationStyles = settings.translationStyles || [];
 
+  // Speech synthesis for read aloud
+  const { speak, isSupported: isSpeechSupported } = useSpeech();
+
   // Initialize modal state when opened
   useEffect(() => {
     if (isOpen) {
@@ -132,6 +140,7 @@ export const TranslateModal = ({
       setSelectedStyleId(null);
       setTranslationResult(null);
       setTranslationError(null);
+      setExplanationResult(null);
       setActiveTab("translate");
       setIsEditingStyle(false);
 
@@ -255,6 +264,42 @@ export const TranslateModal = ({
       setTimeout(() => setCopySuccess(false), 2000);
     }
   };
+
+  /**
+   * Handle read aloud (text-to-speech)
+   */
+  const handleSpeak = () => {
+    if (!translationResult?.text || !isSpeechSupported) return;
+    speak(translationResult.text, targetLang);
+  };
+
+  /**
+   * Handle explain - get AI explanation of the source text's hidden meaning
+   */
+  const handleExplain = useCallback(async () => {
+    if (!sourceText.trim()) {
+      setTranslationError("Please enter text to explain");
+      return;
+    }
+
+    setIsExplaining(true);
+    setTranslationError(null);
+    setExplanationResult(null);
+    setTranslationResult(null);
+
+    try {
+      const gpt = gptService();
+      const explanation = await gpt.explain(sourceText, sourceLang);
+      setExplanationResult(explanation);
+      gpt.close();
+    } catch (error) {
+      setTranslationError(
+        error instanceof Error ? error.message : "Explanation failed"
+      );
+    } finally {
+      setIsExplaining(false);
+    }
+  }, [sourceText, sourceLang]);
 
   /**
    * Handle clear cache
@@ -732,6 +777,16 @@ export const TranslateModal = ({
                         cached
                       </button>
                     )}
+                    {isSpeechSupported && (
+                      <button
+                        type="button"
+                        onClick={handleSpeak}
+                        className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+                        aria-label="Read aloud"
+                      >
+                        <Icon name="volume" size="sm" />
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={handleCopy}
@@ -751,18 +806,43 @@ export const TranslateModal = ({
                 </p>
               </div>
             )}
+
+            {/* Explanation Result */}
+            {explanationResult && (
+              <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                    Explanation
+                  </span>
+                </div>
+                <p className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap">
+                  {explanationResult}
+                </p>
+              </div>
+            )}
           </div>
 
-          {/* Fixed Bottom Bar with Translate Button */}
+          {/* Fixed Bottom Bar with Explain and Translate Buttons */}
           <div className="shrink-0 p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-            <Button
-              onClick={() => handleTranslate()}
-              disabled={!sourceText.trim() || isTranslating}
-              loading={isTranslating}
-              fullWidth
-            >
-              {isTranslating ? "Translating..." : "Translate"}
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                variant="secondary"
+                onClick={handleExplain}
+                disabled={!sourceText.trim() || isTranslating || isExplaining}
+                loading={isExplaining}
+                fullWidth
+              >
+                {isExplaining ? "Explaining..." : "Explain"}
+              </Button>
+              <Button
+                onClick={() => handleTranslate()}
+                disabled={!sourceText.trim() || isTranslating || isExplaining}
+                loading={isTranslating}
+                fullWidth
+              >
+                {isTranslating ? "Translating..." : "Translate"}
+              </Button>
+            </div>
           </div>
         </div>
       )}

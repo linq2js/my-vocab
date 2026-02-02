@@ -25,6 +25,7 @@ export interface VocabFormData {
   ipa?: string;
   examples?: string[];
   partOfSpeech?: string;
+  baseForm?: string;
   forms?: VocabularyForms;
   extra?: ExtraEnrichment;
   senses?: WordSense[];
@@ -157,6 +158,7 @@ export const VocabForm = ({
   const [ipa, setIpa] = useState(initialData?.ipa);
   const [examples, setExamples] = useState(initialData?.examples);
   const [partOfSpeech, setPartOfSpeech] = useState(initialData?.partOfSpeech);
+  const [baseForm, setBaseForm] = useState(initialData?.baseForm);
   const [forms, setForms] = useState<VocabularyForms | undefined>(initialData?.forms);
   const [extra, setExtra] = useState<ExtraEnrichment | undefined>(initialData?.extra);
   const [senses, setSenses] = useState<WordSense[] | undefined>(initialData?.senses);
@@ -165,6 +167,7 @@ export const VocabForm = ({
   const [extraRequest, setExtraRequest] = useState('');
 
   // Apply last-used values when settings load (only for new entries, only once)
+  // Note: categories are intentionally NOT restored - user should select each time
   useEffect(() => {
     if (isEditMode || appliedLastUsed.current) return;
     
@@ -174,13 +177,10 @@ export const VocabForm = ({
     
     appliedLastUsed.current = true;
     
-    // Apply last-used values
+    // Apply last-used values (language and extra enrichment only, not categories)
     const lastUsed = settingsStore.getLastUsedFormValues(settings.lastUsedLanguage);
     if (lastUsed.language) {
       setLanguage(lastUsed.language);
-    }
-    if (lastUsed.categories && lastUsed.categories.length > 0) {
-      setSelectedPredefinedTags(lastUsed.categories);
     }
     if (lastUsed.extraEnrichment) {
       setExtraRequest(lastUsed.extraEnrichment);
@@ -268,10 +268,10 @@ export const VocabForm = ({
       }
 
       // Save last used values for new entries (fire and forget)
+      // Note: categories are intentionally NOT persisted - user should select each time
       if (!isEditMode) {
         settingsStore.setLastUsedFormValues({
           language,
-          categories: selectedPredefinedTags,
           extraEnrichment: { language, text: extraRequest },
         }).catch(() => {
           // Ignore errors - just a convenience feature
@@ -290,6 +290,7 @@ export const VocabForm = ({
         ipa,
         examples,
         partOfSpeech,
+        baseForm,
         forms,
         extra,
         senses,
@@ -313,6 +314,7 @@ export const VocabForm = ({
       ipa,
       examples,
       partOfSpeech,
+      baseForm,
       forms,
       extra,
       senses,
@@ -412,6 +414,7 @@ export const VocabForm = ({
       setIpa(enrichment.ipa);
       setExamples(enrichment.examples);
       setPartOfSpeech(enrichment.type);
+      setBaseForm(enrichment.baseForm);
       setForms(enrichment.forms);
       setExtra(enrichment.extra);
       setSenses(enrichment.senses);
@@ -607,7 +610,7 @@ export const VocabForm = ({
         )}
 
         {/* Enrichment Results Preview */}
-        {(definition || ipa || partOfSpeech || (examples && examples.length > 0) || (forms && Object.keys(forms).length > 0) || (extra && Object.keys(extra).length > 0) || (senses && senses.length > 0)) && (
+        {(definition || ipa || partOfSpeech || baseForm || (examples && examples.length > 0) || (forms && Object.keys(forms).length > 0) || (extra && Object.keys(extra).length > 0) || (senses && senses.length > 0)) && (
           <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-2 text-sm">
             {/* Extra fields displayed FIRST (user-requested custom enrichment) */}
             {extra && Object.keys(extra).length > 0 && (
@@ -623,6 +626,14 @@ export const VocabForm = ({
                   )
                 ))}
               </div>
+            )}
+            {baseForm && (
+              <p>
+                <span className="font-medium text-gray-700 dark:text-gray-300">
+                  Base Form:
+                </span>{' '}
+                <span className="text-gray-600 dark:text-gray-400 font-medium">{baseForm}</span>
+              </p>
             )}
             {partOfSpeech && (
               <p>

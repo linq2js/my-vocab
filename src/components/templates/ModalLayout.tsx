@@ -26,13 +26,14 @@ export interface ModalLayoutProps {
 
 /**
  * Size class mapping for modal widths
+ * Using dvh (dynamic viewport height) for full modal to handle mobile browser chrome
  */
 const sizeClasses: Record<ModalSize, string> = {
   sm: 'max-w-sm',
   md: 'max-w-md',
   lg: 'max-w-lg',
   xl: 'max-w-xl',
-  full: 'max-w-lg h-[calc(100vh-2rem)]',
+  full: 'max-w-lg h-[calc(100dvh-2rem)]',
 };
 
 /**

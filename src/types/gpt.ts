@@ -158,6 +158,9 @@ export interface GptEnrichmentResponse {
   /** Part of speech or content type (noun, verb, idiom, etc.) - primary usage */
   type: string;
   
+  /** Base/lemma/dictionary form of the word if input is inflected (e.g., "running" → "run") */
+  baseForm?: string;
+  
   /** Example sentences demonstrating usage (primary sense) */
   examples: string[];
   
