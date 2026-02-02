@@ -170,9 +170,9 @@ export const PlayPage = (): React.ReactElement => {
   if (!isStarted) {
     return (
       <PageLayout>
-        <div className="max-w-md mx-auto">
+        <div className="space-y-6">
           {/* Page Header */}
-          <div className="flex items-center gap-4 mb-8">
+          <div className="flex items-center gap-4">
             <Link
               to="/"
               className="p-2 -ml-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700 transition-colors"
@@ -230,9 +230,9 @@ export const PlayPage = (): React.ReactElement => {
 
     return (
       <PageLayout>
-        <div className="max-w-md mx-auto">
+        <div className="space-y-6">
           {/* Page Header */}
-          <div className="flex items-center gap-4 mb-8">
+          <div className="flex items-center gap-4">
             <Link
               to="/"
               className="p-2 -ml-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700 transition-colors"
@@ -300,9 +300,9 @@ export const PlayPage = (): React.ReactElement => {
   // Render game screen
   return (
     <PageLayout>
-      <div className="max-w-md mx-auto">
+      <div className="space-y-6">
         {/* Page Header */}
-        <div className="flex items-center gap-4 mb-4">
+        <div className="flex items-center gap-4">
           <Link
             to="/"
             className="p-2 -ml-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700 transition-colors"
@@ -316,7 +316,7 @@ export const PlayPage = (): React.ReactElement => {
         </div>
 
         {/* Audio button and stats row */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between">
           {/* Audio button left */}
           <button
             onClick={handlePlaySound}
@@ -357,7 +357,7 @@ export const PlayPage = (): React.ReactElement => {
         </div>
 
         {!isSupported && (
-          <p className="text-center text-sm text-red-500 mb-4">
+          <p className="text-center text-sm text-red-500">
             Speech not supported in this browser
           </p>
         )}
