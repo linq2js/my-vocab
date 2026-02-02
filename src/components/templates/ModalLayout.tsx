@@ -4,7 +4,7 @@ import { Icon } from '../atoms';
 /**
  * Modal size options
  */
-export type ModalSize = 'sm' | 'md' | 'lg' | 'xl';
+export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
 
 /**
  * Props for the ModalLayout component
@@ -30,6 +30,7 @@ const sizeClasses: Record<ModalSize, string> = {
   md: 'max-w-md',
   lg: 'max-w-lg',
   xl: 'max-w-xl',
+  full: 'max-w-lg h-[calc(100vh-2rem)]',
 };
 
 /**
@@ -133,11 +134,11 @@ export const ModalLayout = ({
       {/* Modal Container */}
       <div
         data-testid="modal-container"
-        className={`${sizeClasses[size]} w-full relative bg-white dark:bg-gray-800 rounded-xl shadow-xl transform transition-all`}
+        className={`${sizeClasses[size]} w-full relative bg-white dark:bg-gray-800 rounded-xl shadow-xl transform transition-all flex flex-col`}
         onClick={handleContainerClick}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
           {title ? (
             <h2
               id={titleId}
@@ -159,7 +160,7 @@ export const ModalLayout = ({
         </div>
 
         {/* Content */}
-        <div className="p-4">{children}</div>
+        <div className={`${size === 'full' ? 'flex-1 min-h-0 overflow-hidden flex flex-col' : 'p-4'}`}>{children}</div>
       </div>
     </div>
   );

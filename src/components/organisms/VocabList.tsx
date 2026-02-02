@@ -27,6 +27,10 @@ export interface VocabListProps extends Omit<HTMLAttributes<HTMLElement>, 'child
   onDelete?: (vocabulary: Vocabulary) => void;
   /** Callback when user wants to add search term as vocabulary */
   onAddAs?: (category: string, text: string) => void;
+  /** Callback when translate button is clicked - passes text and language */
+  onTranslate?: (text: string, language: string) => void;
+  /** User's native language code - hides translate buttons when vocab language matches */
+  nativeLanguage?: string;
 }
 
 /**
@@ -73,6 +77,8 @@ export const VocabList = ({
   onEdit,
   onDelete,
   onAddAs,
+  onTranslate,
+  nativeLanguage,
   className = '',
   ...props
 }: VocabListProps) => {
@@ -181,6 +187,8 @@ export const VocabList = ({
             compact={compact}
             onEdit={onEdit}
             onDelete={onDelete}
+            onTranslate={onTranslate}
+            nativeLanguage={nativeLanguage}
           />
         </li>
       ))}

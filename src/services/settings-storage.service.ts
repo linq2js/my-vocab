@@ -187,6 +187,8 @@ export function settingsStorageService(): SettingsStorageService {
           typeof stored.settings.lastUsedExtraEnrichment === "object"
             ? stored.settings.lastUsedExtraEnrichment
             : {},
+        nativeLanguage: stored.settings.nativeLanguage ?? "en",
+        translationStyles: stored.settings.translationStyles ?? [],
       };
     } catch {
       // Return default settings on any error
@@ -228,6 +230,8 @@ export function settingsStorageService(): SettingsStorageService {
         lastUsedLanguage: settings.lastUsedLanguage,
         lastUsedCategories: settings.lastUsedCategories,
         lastUsedExtraEnrichment: settings.lastUsedExtraEnrichment,
+        nativeLanguage: settings.nativeLanguage,
+        translationStyles: settings.translationStyles,
       },
     };
 

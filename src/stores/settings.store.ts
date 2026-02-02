@@ -36,6 +36,7 @@ import type {
   Theme,
   ExtraEnrichmentPrefs,
 } from "../types/settings";
+import type { TranslationStyle } from "../types/translation";
 import { DEFAULT_APP_SETTINGS } from "../types/settings";
 import type { GptProvider, GptProviderId } from "../types/gpt";
 import {
@@ -192,6 +193,51 @@ export interface SettingsStore {
     categories?: string[];
     extraEnrichment?: { language: string; text: string };
   }) => Promise<void>;
+
+  /**
+   * Sets the user's native language for translations.
+   *
+   * @param language - ISO 639-1 language code
+   * @returns Promise resolving when change is persisted
+   */
+  setNativeLanguage: (language: string) => Promise<void>;
+
+  /**
+   * Adds a new translation style.
+   *
+   * @param style - The style name and prompt (id and timestamps are auto-generated)
+   * @returns Promise resolving when style is added and persisted
+   */
+  addTranslationStyle: (
+    style: Omit<TranslationStyle, "id" | "createdAt" | "updatedAt">
+  ) => Promise<void>;
+
+  /**
+   * Updates an existing translation style.
+   *
+   * @param id - The style ID to update
+   * @param updates - Partial style properties to update (name and/or prompt)
+   * @returns Promise resolving when update is persisted
+   */
+  updateTranslationStyle: (
+    id: string,
+    updates: Partial<Pick<TranslationStyle, "name" | "prompt">>
+  ) => Promise<void>;
+
+  /**
+   * Deletes a translation style.
+   *
+   * @param id - The style ID to delete
+   * @returns Promise resolving when deletion is persisted
+   */
+  deleteTranslationStyle: (id: string) => Promise<void>;
+
+  /**
+   * Gets all translation styles.
+   *
+   * @returns Array of translation styles
+   */
+  getTranslationStyles: () => TranslationStyle[];
 }
 
 /**
@@ -441,6 +487,87 @@ export function createSettingsStore(
     await persistSettings();
   };
 
+  /**
+   * Sets the user's native language for translations.
+   */
+  const setNativeLanguage = async (language: string): Promise<void> => {
+    settings$.set((prev) => ({
+      ...prev,
+      nativeLanguage: language,
+    }));
+
+    await persistSettings();
+  };
+
+  /**
+   * Generates a unique ID for translation styles.
+   */
+  const generateStyleId = (): string => {
+    return `style-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  };
+
+  /**
+   * Adds a new translation style.
+   */
+  const addTranslationStyle = async (
+    style: Omit<TranslationStyle, "id" | "createdAt" | "updatedAt">
+  ): Promise<void> => {
+    const now = Date.now();
+    const newStyle: TranslationStyle = {
+      ...style,
+      id: generateStyleId(),
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    settings$.set((prev) => ({
+      ...prev,
+      translationStyles: [...(prev.translationStyles || []), newStyle],
+    }));
+
+    await persistSettings();
+  };
+
+  /**
+   * Updates an existing translation style.
+   */
+  const updateTranslationStyle = async (
+    id: string,
+    updates: Partial<Pick<TranslationStyle, "name" | "prompt">>
+  ): Promise<void> => {
+    settings$.set((prev) => ({
+      ...prev,
+      translationStyles: (prev.translationStyles || []).map((style) =>
+        style.id === id
+          ? { ...style, ...updates, updatedAt: Date.now() }
+          : style
+      ),
+    }));
+
+    await persistSettings();
+  };
+
+  /**
+   * Deletes a translation style.
+   */
+  const deleteTranslationStyle = async (id: string): Promise<void> => {
+    settings$.set((prev) => ({
+      ...prev,
+      translationStyles: (prev.translationStyles || []).filter(
+        (style) => style.id !== id
+      ),
+    }));
+
+    await persistSettings();
+  };
+
+  /**
+   * Gets all translation styles.
+   */
+  const getTranslationStyles = (): TranslationStyle[] => {
+    return settings$.get().translationStyles || [];
+  };
+
   return {
     settings$,
     init,
@@ -458,6 +585,11 @@ export function createSettingsStore(
     getExtraEnrichmentPrefs,
     getLastUsedFormValues,
     setLastUsedFormValues,
+    setNativeLanguage,
+    addTranslationStyle,
+    updateTranslationStyle,
+    deleteTranslationStyle,
+    getTranslationStyles,
   };
 }
 

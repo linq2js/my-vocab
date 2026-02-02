@@ -29,6 +29,7 @@ import {
 } from "./settings-storage.service";
 import type { IGptProvider } from "./gpt-provider.interface";
 import type { GptEnrichmentResponse, GptProviderId } from "../types/gpt";
+import type { TranslateResult } from "../types/translation";
 import { OpenAIProvider } from "./providers/openai.provider";
 import { GeminiProvider } from "./providers/gemini.provider";
 
@@ -109,6 +110,43 @@ export interface GptService {
    * @returns Promise resolving when cache is cleared
    */
   clearCache: () => Promise<void>;
+
+  /**
+   * Translates text from one language to another.
+   * Checks cache first, then calls the active GPT provider.
+   *
+   * @param text - The text to translate
+   * @param fromLang - Source language code
+   * @param toLang - Target language code
+   * @param styleId - Optional style ID for cache key
+   * @param stylePrompt - Optional style instruction for the AI
+   * @returns Promise resolving to translation result with cache metadata
+   * @throws Error if no provider is configured, API key is missing, or all retries fail
+   */
+  translate: (
+    text: string,
+    fromLang: string,
+    toLang: string,
+    styleId?: string,
+    stylePrompt?: string
+  ) => Promise<TranslateResult>;
+
+  /**
+   * Clears a specific translation cache entry.
+   *
+   * @param cacheKey - The cache key to clear
+   * @returns Promise resolving when cache entry is cleared
+   */
+  clearTranslationCache: (cacheKey: string) => Promise<void>;
+
+  /**
+   * Improves a simple style description into a detailed AI instruction prompt.
+   *
+   * @param description - A simple description of the desired translation style
+   * @returns Promise resolving to an improved, detailed prompt
+   * @throws Error if no provider is configured or API key is missing
+   */
+  improveStylePrompt: (description: string) => Promise<string>;
 
   /**
    * Closes the underlying services.
@@ -332,6 +370,160 @@ export function gptService(options: GptServiceOptions = {}): GptService {
   };
 
   /**
+   * Generates a cache key for translations.
+   */
+  const generateTranslationCacheKey = (
+    text: string,
+    fromLang: string,
+    toLang: string,
+    styleId?: string
+  ): string => {
+    const normalizedText = text.trim().toLowerCase();
+    return `translate:${fromLang}:${toLang}:${styleId || "none"}:${normalizedText}`;
+  };
+
+  /**
+   * Translates text with retry logic.
+   */
+  const translateWithRetry = async (
+    text: string,
+    fromLang: string,
+    toLang: string,
+    provider: IGptProvider,
+    stylePrompt?: string
+  ): Promise<string> => {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await provider.translate(text, fromLang, toLang, stylePrompt);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        if (attempt < maxRetries - 1) {
+          const delayMs = calculateBackoffDelay(attempt, RETRY_DELAY_BASE_MS);
+          await delay(delayMs);
+        }
+      }
+    }
+
+    throw new Error(
+      `Failed to translate after ${maxRetries} attempts: ${lastError?.message}`
+    );
+  };
+
+  /**
+   * Translates text from one language to another.
+   */
+  const translate = async (
+    text: string,
+    fromLang: string,
+    toLang: string,
+    styleId?: string,
+    stylePrompt?: string
+  ): Promise<TranslateResult> => {
+    // Validate inputs
+    const trimmedText = text.trim();
+    if (!trimmedText) {
+      throw new Error("Text is required for translation");
+    }
+
+    const trimmedFromLang = fromLang.trim();
+    if (!trimmedFromLang) {
+      throw new Error("Source language is required for translation");
+    }
+
+    const trimmedToLang = toLang.trim();
+    if (!trimmedToLang) {
+      throw new Error("Target language is required for translation");
+    }
+
+    // Generate cache key
+    const cacheKey = generateTranslationCacheKey(
+      trimmedText,
+      trimmedFromLang,
+      trimmedToLang,
+      styleId
+    );
+
+    // Check cache first
+    const cached = await cache.getTranslation(cacheKey);
+    if (cached) {
+      return {
+        text: cached,
+        fromCache: true,
+        cacheKey,
+      };
+    }
+
+    // Get active provider and translate
+    const provider = await getActiveProvider();
+    const translatedText = await translateWithRetry(
+      trimmedText,
+      trimmedFromLang,
+      trimmedToLang,
+      provider,
+      stylePrompt
+    );
+
+    // Cache the result
+    await cache.setTranslation(cacheKey, translatedText);
+
+    return {
+      text: translatedText,
+      fromCache: false,
+      cacheKey,
+    };
+  };
+
+  /**
+   * Clears a specific translation cache entry.
+   */
+  const clearTranslationCache = async (cacheKey: string): Promise<void> => {
+    await cache.deleteTranslation(cacheKey);
+  };
+
+  /**
+   * Improves a style prompt with retry logic.
+   */
+  const improveStylePromptWithRetry = async (
+    description: string,
+    provider: IGptProvider
+  ): Promise<string> => {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await provider.improveStylePrompt(description);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        if (attempt < maxRetries - 1) {
+          const delayMs = calculateBackoffDelay(attempt, RETRY_DELAY_BASE_MS);
+          await delay(delayMs);
+        }
+      }
+    }
+
+    throw new Error(
+      `Failed to improve style prompt after ${maxRetries} attempts: ${lastError?.message}`
+    );
+  };
+
+  /**
+   * Improves a simple style description into a detailed AI instruction prompt.
+   */
+  const improveStylePrompt = async (description: string): Promise<string> => {
+    const trimmedDescription = description.trim();
+    if (!trimmedDescription) {
+      throw new Error("Description is required");
+    }
+
+    const provider = await getActiveProvider();
+    return improveStylePromptWithRetry(trimmedDescription, provider);
+  };
+
+  /**
    * Closes the underlying services.
    */
   const close = (): void => {
@@ -342,6 +534,9 @@ export function gptService(options: GptServiceOptions = {}): GptService {
     enrich,
     checkApiKeyStatus,
     clearCache,
+    translate,
+    clearTranslationCache,
+    improveStylePrompt,
     close,
   };
 }

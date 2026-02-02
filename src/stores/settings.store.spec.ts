@@ -416,6 +416,224 @@ describe('Settings Store', () => {
     });
   });
 
+  describe('setNativeLanguage', () => {
+    beforeEach(async () => {
+      store = createSettingsStore();
+      await store.init();
+    });
+
+    it('should set native language', async () => {
+      await store.setNativeLanguage('vi');
+
+      expect(store.settings$.get().nativeLanguage).toBe('vi');
+    });
+
+    it('should persist native language change to storage', async () => {
+      await store.setNativeLanguage('ja');
+
+      expect(mockSaveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          nativeLanguage: 'ja',
+        })
+      );
+    });
+
+    it('should default to en', () => {
+      expect(store.settings$.get().nativeLanguage).toBe('en');
+    });
+  });
+
+  describe('translationStyles CRUD', () => {
+    beforeEach(async () => {
+      store = createSettingsStore();
+      await store.init();
+    });
+
+    describe('addTranslationStyle', () => {
+      it('should add a new translation style', async () => {
+        await store.addTranslationStyle({
+          name: 'Formal Email',
+          prompt: 'Translate using formal business language.',
+        });
+
+        const styles = store.getTranslationStyles();
+        expect(styles).toHaveLength(1);
+        expect(styles[0]!.name).toBe('Formal Email');
+        expect(styles[0]!.prompt).toBe('Translate using formal business language.');
+      });
+
+      it('should generate unique id for each style', async () => {
+        await store.addTranslationStyle({
+          name: 'Style 1',
+          prompt: 'Prompt 1',
+        });
+        await store.addTranslationStyle({
+          name: 'Style 2',
+          prompt: 'Prompt 2',
+        });
+
+        const styles = store.getTranslationStyles();
+        expect(styles[0]!.id).not.toBe(styles[1]!.id);
+      });
+
+      it('should set createdAt and updatedAt timestamps', async () => {
+        const beforeAdd = Date.now();
+        await store.addTranslationStyle({
+          name: 'Test Style',
+          prompt: 'Test prompt',
+        });
+        const afterAdd = Date.now();
+
+        const styles = store.getTranslationStyles();
+        expect(styles[0]!.createdAt).toBeGreaterThanOrEqual(beforeAdd);
+        expect(styles[0]!.createdAt).toBeLessThanOrEqual(afterAdd);
+        expect(styles[0]!.updatedAt).toBe(styles[0]!.createdAt);
+      });
+
+      it('should persist new style to storage', async () => {
+        await store.addTranslationStyle({
+          name: 'Casual Chat',
+          prompt: 'Translate casually.',
+        });
+
+        expect(mockSaveSettings).toHaveBeenCalledWith(
+          expect.objectContaining({
+            translationStyles: expect.arrayContaining([
+              expect.objectContaining({
+                name: 'Casual Chat',
+                prompt: 'Translate casually.',
+              }),
+            ]),
+          })
+        );
+      });
+    });
+
+    describe('updateTranslationStyle', () => {
+      it('should update style name', async () => {
+        await store.addTranslationStyle({
+          name: 'Original Name',
+          prompt: 'Original prompt',
+        });
+        const styles = store.getTranslationStyles();
+        const styleId = styles[0]!.id;
+
+        await store.updateTranslationStyle(styleId, { name: 'Updated Name' });
+
+        const updatedStyles = store.getTranslationStyles();
+        expect(updatedStyles[0]!.name).toBe('Updated Name');
+        expect(updatedStyles[0]!.prompt).toBe('Original prompt');
+      });
+
+      it('should update style prompt', async () => {
+        await store.addTranslationStyle({
+          name: 'Test Style',
+          prompt: 'Original prompt',
+        });
+        const styleId = store.getTranslationStyles()[0]!.id;
+
+        await store.updateTranslationStyle(styleId, { prompt: 'Updated prompt' });
+
+        const updatedStyles = store.getTranslationStyles();
+        expect(updatedStyles[0]!.prompt).toBe('Updated prompt');
+      });
+
+      it('should update updatedAt timestamp', async () => {
+        await store.addTranslationStyle({
+          name: 'Test Style',
+          prompt: 'Test prompt',
+        });
+        const styleId = store.getTranslationStyles()[0]!.id;
+        const originalUpdatedAt = store.getTranslationStyles()[0]!.updatedAt;
+
+        // Small delay to ensure different timestamp
+        await new Promise((resolve) => setTimeout(resolve, 10));
+
+        await store.updateTranslationStyle(styleId, { name: 'New Name' });
+
+        const updatedStyles = store.getTranslationStyles();
+        expect(updatedStyles[0]!.updatedAt).toBeGreaterThan(originalUpdatedAt);
+      });
+
+      it('should not modify other styles when updating one', async () => {
+        await store.addTranslationStyle({ name: 'Style 1', prompt: 'Prompt 1' });
+        await store.addTranslationStyle({ name: 'Style 2', prompt: 'Prompt 2' });
+
+        const styles = store.getTranslationStyles();
+        const style1Id = styles[0]!.id;
+
+        await store.updateTranslationStyle(style1Id, { name: 'Updated Style 1' });
+
+        const updatedStyles = store.getTranslationStyles();
+        expect(updatedStyles[1]!.name).toBe('Style 2');
+        expect(updatedStyles[1]!.prompt).toBe('Prompt 2');
+      });
+
+      it('should persist update to storage', async () => {
+        await store.addTranslationStyle({ name: 'Test', prompt: 'Test' });
+        const styleId = store.getTranslationStyles()[0]!.id;
+        vi.clearAllMocks();
+
+        await store.updateTranslationStyle(styleId, { name: 'Updated' });
+
+        expect(mockSaveSettings).toHaveBeenCalled();
+      });
+    });
+
+    describe('deleteTranslationStyle', () => {
+      it('should delete a style by id', async () => {
+        await store.addTranslationStyle({ name: 'To Delete', prompt: 'Delete me' });
+        const styleId = store.getTranslationStyles()[0]!.id;
+
+        await store.deleteTranslationStyle(styleId);
+
+        expect(store.getTranslationStyles()).toHaveLength(0);
+      });
+
+      it('should only delete the specified style', async () => {
+        await store.addTranslationStyle({ name: 'Keep', prompt: 'Keep this' });
+        await store.addTranslationStyle({ name: 'Delete', prompt: 'Delete this' });
+
+        const styles = store.getTranslationStyles();
+        const deleteId = styles[1]!.id;
+
+        await store.deleteTranslationStyle(deleteId);
+
+        const remainingStyles = store.getTranslationStyles();
+        expect(remainingStyles).toHaveLength(1);
+        expect(remainingStyles[0]!.name).toBe('Keep');
+      });
+
+      it('should persist deletion to storage', async () => {
+        await store.addTranslationStyle({ name: 'Test', prompt: 'Test' });
+        const styleId = store.getTranslationStyles()[0]!.id;
+        vi.clearAllMocks();
+
+        await store.deleteTranslationStyle(styleId);
+
+        expect(mockSaveSettings).toHaveBeenCalledWith(
+          expect.objectContaining({
+            translationStyles: [],
+          })
+        );
+      });
+    });
+
+    describe('getTranslationStyles', () => {
+      it('should return empty array when no styles exist', () => {
+        expect(store.getTranslationStyles()).toEqual([]);
+      });
+
+      it('should return all styles', async () => {
+        await store.addTranslationStyle({ name: 'Style 1', prompt: 'Prompt 1' });
+        await store.addTranslationStyle({ name: 'Style 2', prompt: 'Prompt 2' });
+
+        const styles = store.getTranslationStyles();
+        expect(styles).toHaveLength(2);
+      });
+    });
+  });
+
   describe('default settingsStore instance', () => {
     it('should export a default store instance', () => {
       expect(settingsStore).toBeDefined();

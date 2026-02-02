@@ -1,4 +1,5 @@
 import type { GptProvider, GptProviderId } from './gpt';
+import type { TranslationStyle } from './translation';
 
 /**
  * Theme options for the application UI.
@@ -64,6 +65,12 @@ export interface AppSettings {
   
   /** Last used extra enrichment text per language (language code -> text) */
   lastUsedExtraEnrichment: Record<string, string>;
+  
+  /** User's native language for translations (ISO 639-1 code) */
+  nativeLanguage: string;
+  
+  /** Custom translation styles with AI prompts */
+  translationStyles: TranslationStyle[];
 }
 
 /**
@@ -87,4 +94,6 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   lastUsedLanguage: 'en',
   lastUsedCategories: [],
   lastUsedExtraEnrichment: {},
+  nativeLanguage: 'en',
+  translationStyles: [],
 };

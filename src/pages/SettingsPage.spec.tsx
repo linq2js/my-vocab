@@ -50,6 +50,8 @@ describe('SettingsPage', () => {
     lastUsedLanguage: 'en',
     lastUsedCategories: [],
     lastUsedExtraEnrichment: {},
+    nativeLanguage: 'en',
+    translationStyles: [],
   };
 
   /**

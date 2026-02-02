@@ -245,6 +245,18 @@ export const SettingsPage = (): React.ReactElement => {
     }
   }, []);
 
+  /**
+   * Handle native language change for translations.
+   *
+   * @param language - The new native language code
+   */
+  const handleNativeLanguageChange = useCallback(
+    async (language: string): Promise<void> => {
+      await settingsStore.setNativeLanguage(language);
+    },
+    []
+  );
+
   return (
     <PageLayout>
       <div className="space-y-6">
@@ -283,6 +295,7 @@ export const SettingsPage = (): React.ReactElement => {
           onTestApiKey={isOffline ? undefined : handleTestApiKey}
           testingProvider={testingProvider}
           testResults={testResults}
+          onNativeLanguageChange={handleNativeLanguageChange}
         />
 
         {/* Data Management Section */}
@@ -296,27 +309,23 @@ export const SettingsPage = (): React.ReactElement => {
           </p>
 
           <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-medium text-gray-900 dark:text-gray-100">
-                  Vocabulary Data
-                </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {vocabCount} {vocabCount === 1 ? "item" : "items"}{" "}
-                  (vocabularies, idioms, phrasal verbs, quotes)
-                </p>
-              </div>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setShowClearConfirm(true)}
-                disabled={vocabCount === 0}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
-              >
-                <Icon name="trash" size="sm" className="mr-2" />
-                Clear Data
-              </Button>
-            </div>
+            <h3 className="font-medium text-gray-900 dark:text-gray-100">
+              Vocabulary Data
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              {vocabCount} {vocabCount === 1 ? "item" : "items"}{" "}
+              (vocabularies, idioms, phrasal verbs, quotes)
+            </p>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowClearConfirm(true)}
+              disabled={vocabCount === 0}
+              className="mt-3 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+            >
+              <Icon name="trash" size="sm" className="mr-2" />
+              Clear Data
+            </Button>
           </div>
 
           {/* Storage Info */}

@@ -19,6 +19,10 @@ export interface VocabCardProps extends Omit<HTMLAttributes<HTMLElement>, 'onCli
   onEdit?: (vocabulary: Vocabulary) => void;
   /** Callback when delete button is clicked */
   onDelete?: (vocabulary: Vocabulary) => void;
+  /** Callback when translate button is clicked - passes text and language to translate */
+  onTranslate?: (text: string, language: string) => void;
+  /** User's native language code - hides translate buttons when vocab language matches */
+  nativeLanguage?: string;
 }
 
 /**
@@ -70,6 +74,8 @@ export const VocabCard = ({
   compact = false,
   onEdit,
   onDelete,
+  onTranslate,
+  nativeLanguage,
   className = '',
   ...props
 }: VocabCardProps) => {
@@ -148,6 +154,19 @@ export const VocabCard = ({
    */
   const handleSpeak = () => {
     speak(text, language);
+  };
+
+  /**
+   * Check if translate buttons should be shown
+   * Hide when vocab language matches user's native language
+   */
+  const showTranslateButtons = onTranslate && language !== nativeLanguage;
+
+  /**
+   * Handle translate button click for specific text
+   */
+  const handleTranslateText = (textToTranslate: string) => {
+    onTranslate?.(textToTranslate, language);
   };
 
   // Card container classes
@@ -430,6 +449,15 @@ export const VocabCard = ({
                     <Icon name="volume" size="sm" />
                   </button>
                 )}
+                {showTranslateButtons && (
+                  <button
+                    onClick={() => handleTranslateText(definition)}
+                    className="p-0.5 rounded text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:text-purple-400 dark:hover:bg-purple-900/20 transition-colors"
+                    aria-label="Translate definition"
+                  >
+                    <Icon name="translate" size="sm" />
+                  </button>
+                )}
               </div>
               <p className="text-base text-gray-700 dark:text-gray-300">
                 <ClickableText language={language}>{definition}</ClickableText>
@@ -475,7 +503,7 @@ export const VocabCard = ({
                     key={index}
                     className="flex items-start gap-2 text-base text-gray-600 dark:text-gray-400"
                   >
-                    <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded-full flex-shrink-0 mt-0.5">
+                    <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded-full shrink-0 mt-0.5">
                       {index + 1}
                     </span>
                     <span className="flex-1">
@@ -484,10 +512,19 @@ export const VocabCard = ({
                     {isSupported && (
                       <button
                         onClick={() => speak(example, language)}
-                        className="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/20 transition-colors flex-shrink-0"
+                        className="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/20 transition-colors shrink-0"
                         aria-label={`Read example ${index + 1} aloud`}
                       >
                         <Icon name="volume" size="sm" />
+                      </button>
+                    )}
+                    {showTranslateButtons && (
+                      <button
+                        onClick={() => handleTranslateText(example)}
+                        className="p-0.5 rounded text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:text-purple-400 dark:hover:bg-purple-900/20 transition-colors shrink-0"
+                        aria-label={`Translate example ${index + 1}`}
+                      >
+                        <Icon name="translate" size="sm" />
                       </button>
                     )}
                   </li>
@@ -523,10 +560,19 @@ export const VocabCard = ({
                       {isSupported && (
                         <button
                           onClick={() => speak(sense.definition, language)}
-                          className="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/20 transition-colors flex-shrink-0"
+                          className="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/20 transition-colors shrink-0"
                           aria-label="Read definition aloud"
                         >
                           <Icon name="volume" size="sm" />
+                        </button>
+                      )}
+                      {showTranslateButtons && (
+                        <button
+                          onClick={() => handleTranslateText(sense.definition)}
+                          className="p-0.5 rounded text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:text-purple-400 dark:hover:bg-purple-900/20 transition-colors shrink-0"
+                          aria-label="Translate definition"
+                        >
+                          <Icon name="translate" size="sm" />
                         </button>
                       )}
                     </div>
@@ -560,7 +606,7 @@ export const VocabCard = ({
                             key={exIndex}
                             className="flex items-start gap-2 text-base text-gray-600 dark:text-gray-400"
                           >
-                            <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded-full flex-shrink-0 mt-0.5">
+                            <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded-full shrink-0 mt-0.5">
                               {exIndex + 1}
                             </span>
                             <span className="flex-1">
@@ -569,10 +615,19 @@ export const VocabCard = ({
                             {isSupported && (
                               <button
                                 onClick={() => speak(ex, language)}
-                                className="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/20 transition-colors flex-shrink-0"
+                                className="p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/20 transition-colors shrink-0"
                                 aria-label={`Read example ${exIndex + 1} aloud`}
                               >
                                 <Icon name="volume" size="sm" />
+                              </button>
+                            )}
+                            {showTranslateButtons && (
+                              <button
+                                onClick={() => handleTranslateText(ex)}
+                                className="p-0.5 rounded text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:text-purple-400 dark:hover:bg-purple-900/20 transition-colors shrink-0"
+                                aria-label={`Translate example ${exIndex + 1}`}
+                              >
+                                <Icon name="translate" size="sm" />
                               </button>
                             )}
                           </li>

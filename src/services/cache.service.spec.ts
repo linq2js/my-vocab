@@ -11,6 +11,7 @@ const mockStorageService = {
   getCachedGptResponse: vi.fn(),
   cacheGptResponse: vi.fn(),
   clearGptCache: vi.fn(),
+  deleteGptCacheEntry: vi.fn(),
   close: vi.fn(),
   addVocabulary: vi.fn(),
   getVocabulary: vi.fn(),
@@ -158,6 +159,56 @@ describe('cacheService', () => {
       cache.close();
 
       expect(mockStorageService.close).toHaveBeenCalled();
+    });
+  });
+
+  describe('translation cache', () => {
+    describe('getTranslation', () => {
+      it('should return cached translation text when found', async () => {
+        mockStorageService.getCachedGptResponse.mockResolvedValue({
+          definition: 'Bonjour le monde',
+          ipa: '',
+          type: 'translation',
+          examples: [],
+        });
+
+        const result = await cache.getTranslation('translate:en:fr:none:hello world');
+
+        expect(result).toBe('Bonjour le monde');
+        expect(mockStorageService.getCachedGptResponse).toHaveBeenCalledWith('translate:en:fr:none:hello world');
+      });
+
+      it('should return undefined when not found', async () => {
+        mockStorageService.getCachedGptResponse.mockResolvedValue(undefined);
+
+        const result = await cache.getTranslation('translate:en:fr:none:unknown');
+
+        expect(result).toBeUndefined();
+      });
+    });
+
+    describe('setTranslation', () => {
+      it('should cache translation with the full cache key', async () => {
+        await cache.setTranslation('translate:en:fr:none:hello', 'bonjour');
+
+        expect(mockStorageService.cacheGptResponse).toHaveBeenCalledWith(
+          'translate:en:fr:none:hello',
+          {
+            definition: 'bonjour',
+            ipa: '',
+            type: 'translation',
+            examples: [],
+          }
+        );
+      });
+    });
+
+    describe('deleteTranslation', () => {
+      it('should delete the specific cache entry', async () => {
+        await cache.deleteTranslation('translate:en:fr:none:hello');
+
+        expect(mockStorageService.deleteGptCacheEntry).toHaveBeenCalledWith('translate:en:fr:none:hello');
+      });
     });
   });
 });

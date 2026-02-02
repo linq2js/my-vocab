@@ -147,6 +147,11 @@ describe('Icon', () => {
       render(<Icon name="spinner" data-testid="icon" />);
       expect(screen.getByTestId('icon')).toBeInTheDocument();
     });
+
+    it('should render translate icon', () => {
+      render(<Icon name="translate" data-testid="icon" />);
+      expect(screen.getByTestId('icon')).toBeInTheDocument();
+    });
   });
 
   describe('custom className', () => {

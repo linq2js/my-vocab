@@ -31,10 +31,12 @@ import { ContentTypeFilter } from "../components/molecules/ContentTypeFilter";
 import { FilterPanel } from "../components/molecules/FilterPanel";
 import { FloatingActionButton } from "../components/molecules/FloatingActionButton";
 import { VocabList } from "../components/organisms/VocabList";
+import { TranslateModal } from "../components/organisms/TranslateModal";
 import { Icon } from "../components/atoms/Icon";
 import { Toast } from "../components/atoms/Toast";
 import { vocabStore } from "../stores/vocab.store";
 import { uiStore } from "../stores/ui.store";
+import { settingsStore } from "../stores/settings.store";
 import { useReadAloud } from "../contexts/ReadAloudContext";
 import type { Vocabulary } from "../types/vocabulary";
 
@@ -52,12 +54,20 @@ export const HomePage = (): React.ReactElement => {
   const allVocabularies = useSelector(vocabStore.items$);
   const searchQuery = useSelector(uiStore.searchQuery$);
   const filters = useSelector(uiStore.filters$);
+  const settings = useSelector(settingsStore.settings$);
+  const nativeLanguage = settings.nativeLanguage || "en";
 
   // Local state for part of speech filter (not in uiStore)
   const [partOfSpeech, setPartOfSpeech] = useState<string | null>(null);
 
   // Toast state for read-aloud mode
   const [showReadAloudToast, setShowReadAloudToast] = useState(false);
+
+  // Translation modal state
+  const [isTranslateModalOpen, setIsTranslateModalOpen] = useState(false);
+  const [translateInitialText, setTranslateInitialText] = useState("");
+  const [translateInitialLang, setTranslateInitialLang] = useState("");
+  const [translateAutoTranslate, setTranslateAutoTranslate] = useState(false);
 
   // Initialize vocab store on mount (fire and forget - UI shows defaults immediately)
   useEffect(() => {
@@ -167,6 +177,33 @@ export const HomePage = (): React.ReactElement => {
     setPartOfSpeech(null);
   }, []);
 
+  /**
+   * Handle translate button click from FAB - opens empty modal.
+   */
+  const handleTranslateFABClick = useCallback((): void => {
+    setTranslateInitialText("");
+    setTranslateInitialLang("");
+    setTranslateAutoTranslate(false);
+    setIsTranslateModalOpen(true);
+  }, []);
+
+  /**
+   * Handle translate button click from VocabCard - opens modal with text and auto-translates.
+   */
+  const handleTranslateText = useCallback((text: string, language: string): void => {
+    setTranslateInitialText(text);
+    setTranslateInitialLang(language);
+    setTranslateAutoTranslate(true);
+    setIsTranslateModalOpen(true);
+  }, []);
+
+  /**
+   * Handle close translate modal.
+   */
+  const handleCloseTranslateModal = useCallback((): void => {
+    setIsTranslateModalOpen(false);
+  }, []);
+
   return (
     <PageLayout>
       <div className="space-y-4 pb-20">
@@ -208,6 +245,8 @@ export const HomePage = (): React.ReactElement => {
           onEdit={handleEditVocabulary}
           onDelete={handleDeleteVocabulary}
           onAddAs={handleAddAs}
+          onTranslate={handleTranslateText}
+          nativeLanguage={nativeLanguage}
         />
       </div>
 
@@ -221,6 +260,17 @@ export const HomePage = (): React.ReactElement => {
 
       {/* Floating Action Buttons */}
       <div className="fixed bottom-6 right-6 z-50 flex flex-row items-center gap-3">
+        {/* Translate Button */}
+        <button
+          type="button"
+          onClick={handleTranslateFABClick}
+          className="w-12 h-12 rounded-full bg-purple-600 hover:bg-purple-700 text-white shadow-lg flex items-center justify-center transition-all duration-200"
+          aria-label="Open translator"
+          title="Open translation tool"
+        >
+          <Icon name="translate" size="md" />
+        </button>
+
         {/* Read Aloud Mode Toggle */}
         <button
           type="button"
@@ -251,6 +301,15 @@ export const HomePage = (): React.ReactElement => {
         {/* Add Button */}
         <FloatingActionButton onClick={handleFABClick} />
       </div>
+
+      {/* Translate Modal */}
+      <TranslateModal
+        isOpen={isTranslateModalOpen}
+        onClose={handleCloseTranslateModal}
+        initialText={translateInitialText}
+        initialSourceLang={translateInitialLang}
+        autoTranslate={translateAutoTranslate}
+      />
     </PageLayout>
   );
 };

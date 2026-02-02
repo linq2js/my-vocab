@@ -7,3 +7,6 @@ export type { VocabFormProps, VocabFormData } from './VocabForm';
 
 export { SettingsPanel } from './SettingsPanel';
 export type { SettingsPanelProps, ProviderTestResults } from './SettingsPanel';
+
+export { TranslateModal } from './TranslateModal';
+export type { TranslateModalProps } from './TranslateModal';

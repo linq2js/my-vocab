@@ -75,6 +75,31 @@ export interface CacheService {
   clear: () => Promise<void>;
 
   /**
+   * Retrieves a cached translation result.
+   *
+   * @param cacheKey - The full cache key for the translation
+   * @returns Promise resolving to the cached translation text or undefined
+   */
+  getTranslation: (cacheKey: string) => Promise<string | undefined>;
+
+  /**
+   * Caches a translation result.
+   *
+   * @param cacheKey - The full cache key for the translation
+   * @param text - The translated text to cache
+   * @returns Promise resolving when caching is complete
+   */
+  setTranslation: (cacheKey: string, text: string) => Promise<void>;
+
+  /**
+   * Deletes a specific translation cache entry.
+   *
+   * @param cacheKey - The cache key to delete
+   * @returns Promise resolving when deletion is complete
+   */
+  deleteTranslation: (cacheKey: string) => Promise<void>;
+
+  /**
    * Closes the underlying database connection.
    * Important for cleanup in tests.
    */
@@ -150,6 +175,42 @@ export function cacheService(storage?: StorageService): CacheService {
   };
 
   /**
+   * Retrieves a cached translation result.
+   * Uses the gpt_cache store with a translation-specific key format.
+   */
+  const getTranslation = async (
+    cacheKey: string
+  ): Promise<string | undefined> => {
+    const cached = await storageInstance.getCachedGptResponse(cacheKey);
+    // Translation is stored in the definition field
+    return cached?.definition;
+  };
+
+  /**
+   * Caches a translation result.
+   * Stores in the gpt_cache store with the translation text in the definition field.
+   */
+  const setTranslation = async (
+    cacheKey: string,
+    text: string
+  ): Promise<void> => {
+    // Store translation as a GptEnrichmentResponse with only definition filled
+    await storageInstance.cacheGptResponse(cacheKey, {
+      definition: text,
+      ipa: "",
+      type: "translation",
+      examples: [],
+    });
+  };
+
+  /**
+   * Deletes a specific translation cache entry.
+   */
+  const deleteTranslation = async (cacheKey: string): Promise<void> => {
+    await storageInstance.deleteGptCacheEntry(cacheKey);
+  };
+
+  /**
    * Closes the database connection.
    */
   const close = (): void => {
@@ -161,6 +222,9 @@ export function cacheService(storage?: StorageService): CacheService {
     set,
     has,
     clear,
+    getTranslation,
+    setTranslation,
+    deleteTranslation,
     close,
   };
 }

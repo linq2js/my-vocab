@@ -242,4 +242,139 @@ export class GeminiProvider implements IGptProvider {
 
     return parsedResponse;
   }
+
+  /**
+   * Translates text from one language to another using Gemini.
+   *
+   * @param text - The text to translate
+   * @param fromLang - Source language code
+   * @param toLang - Target language code
+   * @param stylePrompt - Optional style instruction
+   * @returns Promise resolving to the translated text
+   * @throws Error if the API call fails
+   */
+  async translate(
+    text: string,
+    fromLang: string,
+    toLang: string,
+    stylePrompt?: string
+  ): Promise<string> {
+    const url = `${GEMINI_API_BASE}/${this.model}:generateContent?key=${this.apiKey}`;
+
+    const prompt = stylePrompt
+      ? `You are a translator. ${stylePrompt}. Translate the following text from ${fromLang} to ${toLang}. Return only the translated text, nothing else.\n\n${text}`
+      : `Translate the following text from ${fromLang} to ${toLang}. Return only the translated text, nothing else.\n\n${text}`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: prompt }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.3,
+          topP: 0.8,
+          topK: 40,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage =
+        (errorData as { error?: { message?: string } })?.error?.message ||
+        `${response.status} ${response.statusText}`;
+      throw new Error(`Gemini API error: ${errorMessage}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.candidates || data.candidates.length === 0) {
+      throw new Error('Gemini API returned no response');
+    }
+
+    const parts = data.candidates[0]?.content?.parts;
+    if (!parts || parts.length === 0) {
+      throw new Error('Gemini API returned empty content');
+    }
+
+    const content = parts[0]?.text;
+    if (!content) {
+      throw new Error('Gemini API returned empty content');
+    }
+
+    return content.trim();
+  }
+
+  /**
+   * Improves a simple style description into a detailed AI instruction prompt.
+   *
+   * @param description - A simple description of the desired translation style
+   * @returns Promise resolving to an improved, detailed prompt
+   * @throws Error if the API call fails
+   */
+  async improveStylePrompt(description: string): Promise<string> {
+    const url = `${GEMINI_API_BASE}/${this.model}:generateContent?key=${this.apiKey}`;
+
+    const prompt = `You are helping a user create a translation style prompt. The user provided this simple description:
+
+"${description}"
+
+Expand this into a detailed, clear instruction for an AI translator. The instruction should:
+- Describe the tone and formality level
+- Mention any specific language patterns to use or avoid
+- Be concise (2-3 sentences max)
+
+Return only the improved prompt text, nothing else.`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: prompt }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.7, // Slightly higher for more creative improvements
+          topP: 0.8,
+          topK: 40,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage =
+        (errorData as { error?: { message?: string } })?.error?.message ||
+        `${response.status} ${response.statusText}`;
+      throw new Error(`Gemini API error: ${errorMessage}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.candidates || data.candidates.length === 0) {
+      throw new Error('Gemini API returned no response');
+    }
+
+    const parts = data.candidates[0]?.content?.parts;
+    if (!parts || parts.length === 0) {
+      throw new Error('Gemini API returned empty content');
+    }
+
+    const content = parts[0]?.text;
+    if (!content) {
+      throw new Error('Gemini API returned empty content');
+    }
+
+    return content.trim();
+  }
 }

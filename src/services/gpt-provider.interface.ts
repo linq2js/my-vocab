@@ -67,4 +67,43 @@ export interface IGptProvider {
    * ```
    */
   enrich(text: string, language: string, extraFields?: string): Promise<GptEnrichmentResponse>;
+
+  /**
+   * Translates text from one language to another.
+   *
+   * @param text - The text to translate
+   * @param fromLang - Source language code (e.g., 'en')
+   * @param toLang - Target language code (e.g., 'fr')
+   * @param stylePrompt - Optional style instruction (e.g., 'Use formal business tone')
+   * @returns Promise resolving to the translated text
+   * @throws Error if the API call fails
+   *
+   * @example
+   * ```typescript
+   * const translation = await provider.translate('Hello world', 'en', 'fr');
+   * console.log(translation); // 'Bonjour le monde'
+   *
+   * // With style
+   * const formal = await provider.translate('Hello', 'en', 'fr', 'Use formal tone');
+   * console.log(formal); // 'Bonjour' or 'Salutations'
+   * ```
+   */
+  translate(text: string, fromLang: string, toLang: string, stylePrompt?: string): Promise<string>;
+
+  /**
+   * Improves a simple style description into a detailed AI instruction prompt.
+   *
+   * @param description - A simple description of the desired translation style (e.g., 'formal email')
+   * @returns Promise resolving to an improved, detailed prompt
+   * @throws Error if the API call fails
+   *
+   * @example
+   * ```typescript
+   * const improved = await provider.improveStylePrompt('formal email');
+   * console.log(improved);
+   * // 'Translate using formal business language suitable for professional email
+   * //  correspondence. Use polite tone, avoid contractions, maintain professional register.'
+   * ```
+   */
+  improveStylePrompt(description: string): Promise<string>;
 }

@@ -42,6 +42,8 @@ describe('gptService', () => {
     lastUsedLanguage: 'en',
     lastUsedCategories: [],
     lastUsedExtraEnrichment: {},
+    nativeLanguage: 'en',
+    translationStyles: [],
   };
 
   beforeEach(() => {
@@ -51,6 +53,9 @@ describe('gptService', () => {
       set: vi.fn().mockResolvedValue(undefined),
       has: vi.fn().mockResolvedValue(false),
       clear: vi.fn().mockResolvedValue(undefined),
+      getTranslation: vi.fn().mockResolvedValue(undefined),
+      setTranslation: vi.fn().mockResolvedValue(undefined),
+      deleteTranslation: vi.fn().mockResolvedValue(undefined),
       close: vi.fn(),
     };
 
@@ -66,11 +71,15 @@ describe('gptService', () => {
     mockOpenAIProvider = {
       providerId: 'openai',
       enrich: vi.fn().mockResolvedValue(mockEnrichmentResponse),
+      translate: vi.fn().mockResolvedValue('Bonjour le monde'),
+      improveStylePrompt: vi.fn().mockResolvedValue('Improved style prompt'),
     };
 
     mockGeminiProvider = {
       providerId: 'gemini',
       enrich: vi.fn().mockResolvedValue(mockEnrichmentResponse),
+      translate: vi.fn().mockResolvedValue('Bonjour le monde'),
+      improveStylePrompt: vi.fn().mockResolvedValue('Improved style prompt'),
     };
 
     // Create service with mocks
@@ -278,6 +287,120 @@ describe('gptService', () => {
         providerId: 'unknown',
         providerName: null,
       });
+    });
+  });
+
+  describe('translate', () => {
+    it('should return cached translation if available', async () => {
+      vi.mocked(mockCacheService.getTranslation).mockResolvedValue('Bonjour');
+
+      const result = await service.translate('Hello', 'en', 'fr');
+
+      expect(result).toEqual({
+        text: 'Bonjour',
+        fromCache: true,
+        cacheKey: 'translate:en:fr:none:hello',
+      });
+      expect(mockCacheService.getTranslation).toHaveBeenCalledWith('translate:en:fr:none:hello');
+      expect(mockOpenAIProvider.translate).not.toHaveBeenCalled();
+    });
+
+    it('should call provider and cache translation when not cached', async () => {
+      vi.mocked(mockCacheService.getTranslation).mockResolvedValue(undefined);
+      vi.mocked(mockOpenAIProvider.translate).mockResolvedValue('Bonjour le monde');
+
+      const result = await service.translate('Hello world', 'en', 'fr');
+
+      expect(result).toEqual({
+        text: 'Bonjour le monde',
+        fromCache: false,
+        cacheKey: 'translate:en:fr:none:hello world',
+      });
+      expect(mockOpenAIProvider.translate).toHaveBeenCalledWith('Hello world', 'en', 'fr', undefined);
+      expect(mockCacheService.setTranslation).toHaveBeenCalledWith(
+        'translate:en:fr:none:hello world',
+        'Bonjour le monde'
+      );
+    });
+
+    it('should include style ID in cache key when provided', async () => {
+      vi.mocked(mockCacheService.getTranslation).mockResolvedValue(undefined);
+      vi.mocked(mockOpenAIProvider.translate).mockResolvedValue('Bonjour');
+
+      const result = await service.translate('Hello', 'en', 'fr', 'formal-email', 'Use formal tone');
+
+      expect(result.cacheKey).toBe('translate:en:fr:formal-email:hello');
+      expect(mockOpenAIProvider.translate).toHaveBeenCalledWith('Hello', 'en', 'fr', 'Use formal tone');
+    });
+
+    it('should throw error when text is empty', async () => {
+      await expect(service.translate('', 'en', 'fr')).rejects.toThrow(
+        'Text is required for translation'
+      );
+    });
+
+    it('should throw error when fromLang is empty', async () => {
+      await expect(service.translate('Hello', '', 'fr')).rejects.toThrow(
+        'Source language is required for translation'
+      );
+    });
+
+    it('should throw error when toLang is empty', async () => {
+      await expect(service.translate('Hello', 'en', '')).rejects.toThrow(
+        'Target language is required for translation'
+      );
+    });
+
+    it('should retry on provider failure', async () => {
+      vi.mocked(mockCacheService.getTranslation).mockResolvedValue(undefined);
+      vi.mocked(mockOpenAIProvider.translate)
+        .mockRejectedValueOnce(new Error('Network error'))
+        .mockResolvedValueOnce('Bonjour');
+
+      const result = await service.translate('Hello', 'en', 'fr');
+
+      expect(result.text).toBe('Bonjour');
+      expect(mockOpenAIProvider.translate).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('clearTranslationCache', () => {
+    it('should delete specific translation cache entry', async () => {
+      await service.clearTranslationCache('translate:en:fr:none:hello');
+
+      expect(mockCacheService.deleteTranslation).toHaveBeenCalledWith('translate:en:fr:none:hello');
+    });
+  });
+
+  describe('improveStylePrompt', () => {
+    it('should call provider to improve a simple style description', async () => {
+      vi.mocked(mockOpenAIProvider.improveStylePrompt).mockResolvedValue(
+        'Translate using formal business language suitable for professional email correspondence. Use polite tone, avoid contractions.'
+      );
+
+      const result = await service.improveStylePrompt('formal email');
+
+      expect(result).toBe(
+        'Translate using formal business language suitable for professional email correspondence. Use polite tone, avoid contractions.'
+      );
+      expect(mockOpenAIProvider.improveStylePrompt).toHaveBeenCalledWith('formal email');
+    });
+
+    it('should throw error when description is empty', async () => {
+      await expect(service.improveStylePrompt('')).rejects.toThrow(
+        'Description is required'
+      );
+    });
+
+    it('should retry on provider failure', async () => {
+      vi.mocked(mockOpenAIProvider.improveStylePrompt)
+        .mockRejectedValueOnce(new Error('Network error'))
+        .mockResolvedValueOnce('Improved prompt');
+
+      const result = await service.improveStylePrompt('casual chat');
+
+      expect(result).toBe('Improved prompt');
+      expect(mockOpenAIProvider.improveStylePrompt).toHaveBeenCalledTimes(2);
     });
   });
 });

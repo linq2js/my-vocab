@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useId } from 'react';
 import { ApiKeyInput, type TestResult } from '../molecules/ApiKeyInput';
 import { Button } from '../atoms/Button';
 import { Icon } from '../atoms/Icon';
 import type { AppSettings } from '../../types/settings';
 import type { GptProviderId } from '../../types/gpt';
+import { LANGUAGES } from '../../constants/languages';
 
 /**
  * Test results map for each provider
@@ -26,6 +27,8 @@ export interface SettingsPanelProps {
   testingProvider?: GptProviderId | null;
   /** Test results for each provider */
   testResults?: ProviderTestResults;
+  /** Callback when native language is changed */
+  onNativeLanguageChange?: (language: string) => void;
   /** Whether the panel is disabled */
   disabled?: boolean;
   /** Additional CSS classes */
@@ -106,9 +109,11 @@ export const SettingsPanel = ({
   onTestApiKey,
   testingProvider = null,
   testResults = { openai: null, gemini: null },
+  onNativeLanguageChange,
   disabled = false,
   className = '',
 }: SettingsPanelProps) => {
+  const selectId = useId();
   // Track which providers are expanded (default: active provider is expanded)
   const [expandedProviders, setExpandedProviders] = useState<Set<GptProviderId>>(
     new Set([settings.activeProviderId])
@@ -276,6 +281,47 @@ export const SettingsPanel = ({
           </div>
         );
       })}
+
+      {/* Translation Settings Section */}
+      {onNativeLanguageChange && (
+        <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Translation
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Configure your translation preferences
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label
+                htmlFor={`${selectId}-native-lang`}
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
+                Native Language
+              </label>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                Your native language will be used as the default target language for translations
+              </p>
+              <select
+                id={`${selectId}-native-lang`}
+                value={settings.nativeLanguage || 'en'}
+                onChange={(e) => onNativeLanguageChange(e.target.value)}
+                disabled={disabled}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {LANGUAGES.map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

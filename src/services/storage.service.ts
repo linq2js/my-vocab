@@ -92,6 +92,8 @@ export interface StorageService {
     response: GptEnrichmentResponse
   ) => Promise<void>;
   clearGptCache: () => Promise<void>;
+  /** Deletes a specific GPT cache entry by key */
+  deleteGptCacheEntry: (key: string) => Promise<void>;
   /** Clears all vocabulary data from the database */
   clearAllVocabularies: () => Promise<void>;
   /** Clears all data (vocabularies and GPT cache) from the database */
@@ -318,6 +320,17 @@ export function storageService(): StorageService {
   };
 
   /**
+   * Deletes a specific GPT cache entry by key.
+   *
+   * @param key - The cache key to delete
+   * @returns Promise resolving when deletion is complete
+   */
+  const deleteGptCacheEntry = async (key: string): Promise<void> => {
+    const database = await getDB();
+    await database.delete("gpt_cache", key);
+  };
+
+  /**
    * Clears all vocabulary entries from the database.
    * Does not affect GPT cache or settings.
    *
@@ -366,6 +379,7 @@ export function storageService(): StorageService {
     getCachedGptResponse,
     cacheGptResponse,
     clearGptCache,
+    deleteGptCacheEntry,
 
     // Data management
     clearAllVocabularies,

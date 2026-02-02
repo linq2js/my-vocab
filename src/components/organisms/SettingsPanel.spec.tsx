@@ -17,6 +17,8 @@ const mockSettings: AppSettings = {
   lastUsedLanguage: 'en',
   lastUsedCategories: [],
   lastUsedExtraEnrichment: {},
+  nativeLanguage: 'en',
+  translationStyles: [],
 };
 
 describe('SettingsPanel', () => {
