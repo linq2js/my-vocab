@@ -73,6 +73,7 @@ describe('gptService', () => {
       enrich: vi.fn().mockResolvedValue(mockEnrichmentResponse),
       translate: vi.fn().mockResolvedValue('Bonjour le monde'),
       improveStylePrompt: vi.fn().mockResolvedValue('Improved style prompt'),
+      explain: vi.fn().mockResolvedValue('This is an explanation of the text.'),
     };
 
     mockGeminiProvider = {
@@ -80,6 +81,7 @@ describe('gptService', () => {
       enrich: vi.fn().mockResolvedValue(mockEnrichmentResponse),
       translate: vi.fn().mockResolvedValue('Bonjour le monde'),
       improveStylePrompt: vi.fn().mockResolvedValue('Improved style prompt'),
+      explain: vi.fn().mockResolvedValue('This is an explanation of the text.'),
     };
 
     // Create service with mocks

@@ -1,7 +1,8 @@
-import type { VocabularyForms, ExtraEnrichment, WordSense, GptEnrichmentResponse } from './gpt';
-
 // Re-export types for convenience
 export type { VocabularyForms, ExtraEnrichment, WordSense, GptEnrichmentResponse } from './gpt';
+
+// Import types that are used within this file
+import type { VocabularyForms, ExtraEnrichment, WordSense } from './gpt';
 
 /**
  * Represents a vocabulary entry in the application.
