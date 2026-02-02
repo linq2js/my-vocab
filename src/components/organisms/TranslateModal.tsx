@@ -120,6 +120,10 @@ export const TranslateModal = ({
   // Textarea refs for auto-resize
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const contextTextareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Refs for scrolling to results
+  const translationResultRef = useRef<HTMLDivElement>(null);
+  const explanationResultRef = useRef<HTMLDivElement>(null);
 
   // Get settings from store
   const settings = useSelector(settingsStore.settings$);
@@ -220,6 +224,11 @@ export const TranslateModal = ({
 
         setTranslationResult(result);
         gpt.close();
+        
+        // Scroll to result after a brief delay to ensure DOM update
+        setTimeout(() => {
+          translationResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 100);
       } catch (error) {
         setTranslationError(
           error instanceof Error ? error.message : "Translation failed"
@@ -228,7 +237,7 @@ export const TranslateModal = ({
         setIsTranslating(false);
       }
     },
-    [sourceText, sourceLang, targetLang, selectedStyleId, translationStyles]
+    [sourceText, sourceLang, targetLang, selectedStyleId, translationStyles, context]
   );
 
   /**
@@ -292,6 +301,11 @@ export const TranslateModal = ({
       const explanation = await gpt.explain(sourceText, sourceLang);
       setExplanationResult(explanation);
       gpt.close();
+      
+      // Scroll to result after a brief delay to ensure DOM update
+      setTimeout(() => {
+        explanationResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 100);
     } catch (error) {
       setTranslationError(
         error instanceof Error ? error.message : "Explanation failed"
@@ -761,7 +775,7 @@ export const TranslateModal = ({
 
             {/* Translation Result */}
             {translationResult && (
-              <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+              <div ref={translationResultRef} className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Translation
@@ -809,7 +823,7 @@ export const TranslateModal = ({
 
             {/* Explanation Result */}
             {explanationResult && (
-              <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+              <div ref={explanationResultRef} className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
                     Explanation
