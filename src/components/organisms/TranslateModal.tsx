@@ -50,6 +50,32 @@ export interface TranslateModalProps {
 type TabType = "translate" | "styles";
 
 /**
+ * Common translation styles that can be added with one click.
+ */
+const COMMON_STYLES = [
+  {
+    name: "Formal",
+    prompt: "Translate in a formal, professional tone. Use polite language, avoid contractions, and maintain a business-appropriate style.",
+  },
+  {
+    name: "Casual",
+    prompt: "Translate in a casual, friendly tone. Use conversational language, contractions are okay, keep it relaxed and approachable.",
+  },
+  {
+    name: "Simple",
+    prompt: "Translate using simple, easy-to-understand language. Avoid complex vocabulary, use short sentences, suitable for beginners.",
+  },
+  {
+    name: "Poetic",
+    prompt: "Translate with a poetic, literary style. Use expressive language, metaphors when appropriate, and maintain aesthetic beauty.",
+  },
+  {
+    name: "Technical",
+    prompt: "Translate with precise technical terminology. Maintain accuracy, use domain-specific terms, be concise and clear.",
+  },
+];
+
+/**
  * TranslateModal component - translation tool with style management.
  */
 export const TranslateModal = ({
@@ -64,6 +90,7 @@ export const TranslateModal = ({
 
   // Translation state
   const [sourceText, setSourceText] = useState("");
+  const [context, setContext] = useState("");
   const [sourceLang, setSourceLang] = useState("en");
   const [targetLang, setTargetLang] = useState("en");
   const [selectedStyleId, setSelectedStyleId] = useState<string | null>(null);
@@ -80,12 +107,14 @@ export const TranslateModal = ({
   const [stylePrompt, setStylePrompt] = useState("");
   const [isImprovingPrompt, setIsImprovingPrompt] = useState(false);
   const [styleError, setStyleError] = useState<string | null>(null);
+  const [isAddingCommonStyles, setIsAddingCommonStyles] = useState(false);
 
   // Clear cache confirmation
   const [showClearCacheConfirm, setShowClearCacheConfirm] = useState(false);
 
-  // Textarea ref for auto-resize
+  // Textarea refs for auto-resize
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const contextTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Get settings from store
   const settings = useSelector(settingsStore.settings$);
@@ -97,6 +126,7 @@ export const TranslateModal = ({
     if (isOpen) {
       // Set initial values
       setSourceText(initialText);
+      setContext("");
       setSourceLang(initialSourceLang || "en");
       setTargetLang(nativeLanguage);
       setSelectedStyleId(null);
@@ -112,6 +142,24 @@ export const TranslateModal = ({
     }
   }, [isOpen, initialText, initialSourceLang, nativeLanguage, autoTranslate]);
 
+  // Auto-resize textarea when sourceText changes (including initial value)
+  useEffect(() => {
+    if (textareaRef.current && sourceText) {
+      const textarea = textareaRef.current;
+      textarea.style.height = 'auto';
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+    }
+  }, [sourceText]);
+
+  // Auto-resize context textarea when context changes
+  useEffect(() => {
+    if (contextTextareaRef.current && context) {
+      const textarea = contextTextareaRef.current;
+      textarea.style.height = 'auto';
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 150)}px`;
+    }
+  }, [context]);
+
   /**
    * Handle translation
    */
@@ -120,7 +168,8 @@ export const TranslateModal = ({
       text: string = sourceText,
       from: string = sourceLang,
       to: string = targetLang,
-      styleId: string | null = selectedStyleId
+      styleId: string | null = selectedStyleId,
+      translationContext: string = context
     ) => {
       if (!text.trim()) {
         setTranslationError("Please enter text to translate");
@@ -142,12 +191,22 @@ export const TranslateModal = ({
           ? translationStyles.find((s) => s.id === styleId)
           : null;
 
+        // Build the prompt with style and context
+        let fullPrompt = style?.prompt || "";
+        if (translationContext.trim()) {
+          const contextInstruction = `Context for translation: ${translationContext.trim()}`;
+          fullPrompt = fullPrompt
+            ? `${fullPrompt}. ${contextInstruction}`
+            : contextInstruction;
+        }
+
         const result = await gpt.translate(
           text,
           from,
           to,
           styleId || undefined,
-          style?.prompt
+          fullPrompt || undefined,
+          translationContext || undefined  // Pass context for cache key
         );
 
         setTranslationResult(result);
@@ -313,12 +372,41 @@ export const TranslateModal = ({
     setStyleError(null);
   };
 
-  const tabButtonClass = (tab: TabType) =>
-    `px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-      activeTab === tab
-        ? "bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
-        : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-    }`;
+  /**
+   * Handle add common styles
+   * Adds predefined common styles that don't already exist
+   */
+  const handleAddCommonStyles = async () => {
+    setIsAddingCommonStyles(true);
+    setStyleError(null);
+
+    try {
+      const existingNames = new Set(
+        translationStyles.map((s) => s.name.toLowerCase())
+      );
+
+      // Filter out styles that already exist (by name)
+      const stylesToAdd = COMMON_STYLES.filter(
+        (style) => !existingNames.has(style.name.toLowerCase())
+      );
+
+      if (stylesToAdd.length === 0) {
+        setStyleError("All common styles already exist");
+        return;
+      }
+
+      // Add each style
+      for (const style of stylesToAdd) {
+        await settingsStore.addTranslationStyle(style);
+      }
+    } catch (error) {
+      setStyleError(
+        error instanceof Error ? error.message : "Failed to add common styles"
+      );
+    } finally {
+      setIsAddingCommonStyles(false);
+    }
+  };
 
   const selectId = useId();
 
@@ -335,25 +423,47 @@ export const TranslateModal = ({
     textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
   };
 
+  /**
+   * Auto-resize context textarea based on content
+   */
+  const handleContextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setContext(e.target.value);
+    
+    // Auto-resize textarea
+    const textarea = e.target;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 150)}px`;
+  };
+
+  const headerTabs = (
+    <div className="flex gap-1">
+      <button
+        type="button"
+        className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${
+          activeTab === "translate"
+            ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+        }`}
+        onClick={() => setActiveTab("translate")}
+      >
+        Translate
+      </button>
+      <button
+        type="button"
+        className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${
+          activeTab === "styles"
+            ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+        }`}
+        onClick={() => setActiveTab("styles")}
+      >
+        Styles
+      </button>
+    </div>
+  );
+
   return (
-    <ModalLayout isOpen={isOpen} onClose={onClose} title="Translate" size="full">
-      {/* Tabs */}
-      <div className="flex border-b border-gray-200 dark:border-gray-700 px-4 shrink-0">
-        <button
-          type="button"
-          className={tabButtonClass("translate")}
-          onClick={() => setActiveTab("translate")}
-        >
-          Translate
-        </button>
-        <button
-          type="button"
-          className={tabButtonClass("styles")}
-          onClick={() => setActiveTab("styles")}
-        >
-          Styles
-        </button>
-      </div>
+    <ModalLayout isOpen={isOpen} onClose={onClose} headerContent={headerTabs} size="full">
 
       {/* Translate Tab */}
       {activeTab === "translate" && (
@@ -482,16 +592,73 @@ export const TranslateModal = ({
               >
                 Text to translate
               </label>
-              <textarea
-                ref={textareaRef}
-                id={`${selectId}-text`}
-                value={sourceText}
-                onChange={handleTextareaChange}
-                placeholder="Enter text to translate..."
-                rows={2}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none overflow-hidden"
-                style={{ minHeight: '60px', maxHeight: '200px' }}
-              />
+              <div className="relative">
+                <textarea
+                  ref={textareaRef}
+                  id={`${selectId}-text`}
+                  value={sourceText}
+                  onChange={handleTextareaChange}
+                  placeholder="Enter text to translate..."
+                  rows={2}
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none overflow-hidden"
+                  style={{ minHeight: '60px', maxHeight: '200px' }}
+                />
+                {sourceText && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSourceText("");
+                      if (textareaRef.current) {
+                        textareaRef.current.style.height = 'auto';
+                      }
+                    }}
+                    className="absolute top-2 right-2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+                    aria-label="Clear text"
+                  >
+                    <Icon name="close" size="sm" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Context Input */}
+            <div>
+              <label
+                htmlFor={`${selectId}-context`}
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
+                Context
+                <span className="ml-1 text-xs font-normal text-gray-400 dark:text-gray-500">
+                  (optional)
+                </span>
+              </label>
+              <div className="relative">
+                <textarea
+                  ref={contextTextareaRef}
+                  id={`${selectId}-context`}
+                  value={context}
+                  onChange={handleContextChange}
+                  placeholder="e.g., topic, background info..."
+                  rows={1}
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none overflow-hidden text-sm leading-5"
+                  style={{ minHeight: '38px', maxHeight: '150px' }}
+                />
+                {context && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setContext("");
+                      if (contextTextareaRef.current) {
+                        contextTextareaRef.current.style.height = 'auto';
+                      }
+                    }}
+                    className="absolute top-2 right-2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+                    aria-label="Clear context"
+                  >
+                    <Icon name="close" size="sm" />
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Error Message */}
@@ -613,21 +780,41 @@ export const TranslateModal = ({
                 )}
               </div>
 
-              {/* Add Style Button */}
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsEditingStyle(true);
-                  setEditingStyleId(null);
-                  setStyleName("");
-                  setStylePrompt("");
-                  setStyleError(null);
-                }}
-                fullWidth
-              >
-                <Icon name="plus" size="sm" className="mr-2" />
-                Add New Style
-              </Button>
+              {/* Add Style Buttons */}
+              <div className="space-y-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsEditingStyle(true);
+                    setEditingStyleId(null);
+                    setStyleName("");
+                    setStylePrompt("");
+                    setStyleError(null);
+                  }}
+                  fullWidth
+                >
+                  <Icon name="plus" size="sm" className="mr-2" />
+                  Add New Style
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={handleAddCommonStyles}
+                  disabled={isAddingCommonStyles}
+                  loading={isAddingCommonStyles}
+                  fullWidth
+                >
+                  {isAddingCommonStyles ? "Adding..." : "Add Common Styles"}
+                </Button>
+              </div>
+
+              {/* Error Message for Common Styles */}
+              {styleError && !isEditingStyle && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    {styleError}
+                  </p>
+                </div>
+              )}
             </>
           ) : (
             /* Style Edit Form */
@@ -720,16 +907,16 @@ export const TranslateModal = ({
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
               This will remove the cached result and fetch a fresh translation.
             </p>
-            <div className="flex gap-3">
+            <div className="flex flex-col gap-3">
+              <Button onClick={handleClearCache} fullWidth>
+                Clear & Re-translate
+              </Button>
               <Button
                 variant="secondary"
                 onClick={() => setShowClearCacheConfirm(false)}
                 fullWidth
               >
                 Cancel
-              </Button>
-              <Button onClick={handleClearCache} fullWidth>
-                Clear & Re-translate
               </Button>
             </div>
           </div>

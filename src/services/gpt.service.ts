@@ -120,6 +120,7 @@ export interface GptService {
    * @param toLang - Target language code
    * @param styleId - Optional style ID for cache key
    * @param stylePrompt - Optional style instruction for the AI
+   * @param context - Optional context for more accurate translation (hashed for cache key)
    * @returns Promise resolving to translation result with cache metadata
    * @throws Error if no provider is configured, API key is missing, or all retries fail
    */
@@ -128,7 +129,8 @@ export interface GptService {
     fromLang: string,
     toLang: string,
     styleId?: string,
-    stylePrompt?: string
+    stylePrompt?: string,
+    context?: string
   ) => Promise<TranslateResult>;
 
   /**
@@ -370,16 +372,31 @@ export function gptService(options: GptServiceOptions = {}): GptService {
   };
 
   /**
+   * Simple hash function for context string.
+   * Uses djb2 algorithm for fast, consistent hashing.
+   */
+  const hashString = (str: string): string => {
+    if (!str) return "none";
+    let hash = 5381;
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash * 33) ^ str.charCodeAt(i);
+    }
+    return (hash >>> 0).toString(36);
+  };
+
+  /**
    * Generates a cache key for translations.
    */
   const generateTranslationCacheKey = (
     text: string,
     fromLang: string,
     toLang: string,
-    styleId?: string
+    styleId?: string,
+    context?: string
   ): string => {
     const normalizedText = text.trim().toLowerCase();
-    return `translate:${fromLang}:${toLang}:${styleId || "none"}:${normalizedText}`;
+    const contextHash = hashString(context?.trim().toLowerCase() || "");
+    return `translate:${fromLang}:${toLang}:${styleId || "none"}:${contextHash}:${normalizedText}`;
   };
 
   /**
@@ -420,7 +437,8 @@ export function gptService(options: GptServiceOptions = {}): GptService {
     fromLang: string,
     toLang: string,
     styleId?: string,
-    stylePrompt?: string
+    stylePrompt?: string,
+    context?: string
   ): Promise<TranslateResult> => {
     // Validate inputs
     const trimmedText = text.trim();
@@ -438,12 +456,13 @@ export function gptService(options: GptServiceOptions = {}): GptService {
       throw new Error("Target language is required for translation");
     }
 
-    // Generate cache key
+    // Generate cache key (includes context hash)
     const cacheKey = generateTranslationCacheKey(
       trimmedText,
       trimmedFromLang,
       trimmedToLang,
-      styleId
+      styleId,
+      context
     );
 
     // Check cache first
