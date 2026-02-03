@@ -1027,7 +1027,7 @@ export const TranslateModal = ({
           </div>
 
           {/* Fixed Bottom Bar with Translate Button */}
-          <div className="shrink-0 p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <div className="shrink-0 p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-b-xl">
             <Button
               onClick={() => handleTranslate()}
               disabled={!sourceText.trim() || isTranslating || sourceLang === targetLang}
@@ -1398,7 +1398,7 @@ export const TranslateModal = ({
           </div>
 
           {/* Fixed Bottom Bar with Action Buttons */}
-          <div className="shrink-0 p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <div className="shrink-0 p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-b-xl">
             <div className="flex gap-2">
               <Button
                 onClick={handleToolsRephrase}
