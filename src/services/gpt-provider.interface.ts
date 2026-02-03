@@ -141,4 +141,19 @@ export interface IGptProvider {
    * ```
    */
   rephrase(text: string, language: string, stylePrompt?: string, context?: string): Promise<string>;
+
+  /**
+   * Detects the language of a given text.
+   *
+   * @param text - The text to analyze
+   * @returns Promise resolving to the detected language code (e.g., 'en', 'fr', 'es')
+   * @throws Error if the API call fails
+   *
+   * @example
+   * ```typescript
+   * const langCode = await provider.detectLanguage('Bonjour le monde');
+   * console.log(langCode); // 'fr'
+   * ```
+   */
+  detectLanguage(text: string): Promise<string>;
 }

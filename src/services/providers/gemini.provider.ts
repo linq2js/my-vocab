@@ -521,4 +521,68 @@ Provide a clear, helpful explanation that reveals what the text really means bey
 
     return content.trim();
   }
+
+  /**
+   * Detects the language of a given text.
+   *
+   * @param text - The text to analyze
+   * @returns Promise resolving to the detected language code (e.g., 'en', 'fr', 'es')
+   * @throws Error if the API call fails
+   */
+  async detectLanguage(text: string): Promise<string> {
+    const url = `${GEMINI_API_BASE}/${this.model}:generateContent?key=${this.apiKey}`;
+
+    const prompt = `You are a language detection expert. Analyze the following text and return ONLY the ISO 639-1 language code (e.g., 'en' for English, 'fr' for French, 'es' for Spanish, 'de' for German, 'ja' for Japanese, 'ko' for Korean, 'zh' for Chinese, 'vi' for Vietnamese, etc.).
+
+Return ONLY the 2-letter language code, nothing else.
+
+Text to analyze:
+${text}`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: prompt }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.1, // Very low for consistent detection
+          topP: 0.8,
+          topK: 40,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage =
+        (errorData as { error?: { message?: string } })?.error?.message ||
+        `${response.status} ${response.statusText}`;
+      throw new Error(`Gemini API error: ${errorMessage}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.candidates || data.candidates.length === 0) {
+      throw new Error('Gemini API returned no response');
+    }
+
+    const parts = data.candidates[0]?.content?.parts;
+    if (!parts || parts.length === 0) {
+      throw new Error('Gemini API returned empty content');
+    }
+
+    const content = parts[0]?.text;
+    if (!content) {
+      throw new Error('Gemini API returned empty content');
+    }
+
+    // Clean up the response - should be just a language code
+    return content.trim().toLowerCase().replace(/['"]/g, '');
+  }
 }

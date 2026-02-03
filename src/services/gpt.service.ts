@@ -182,6 +182,15 @@ export interface GptService {
   ) => Promise<TranslateResult>;
 
   /**
+   * Detects the language of a given text.
+   *
+   * @param text - The text to analyze
+   * @returns Promise resolving to the detected language code (e.g., 'en', 'fr')
+   * @throws Error if no provider is configured or API key is missing
+   */
+  detectLanguage: (text: string) => Promise<string>;
+
+  /**
    * Closes the underlying services.
    * Important for cleanup in tests.
    */
@@ -725,6 +734,46 @@ export function gptService(options: GptServiceOptions = {}): GptService {
   };
 
   /**
+   * Detects language with retry logic.
+   */
+  const detectLanguageWithRetry = async (
+    text: string,
+    provider: IGptProvider
+  ): Promise<string> => {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await provider.detectLanguage(text);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        if (attempt < maxRetries - 1) {
+          const delayMs = calculateBackoffDelay(attempt, RETRY_DELAY_BASE_MS);
+          await delay(delayMs);
+        }
+      }
+    }
+
+    throw new Error(
+      `Failed to detect language after ${maxRetries} attempts: ${lastError?.message}`
+    );
+  };
+
+  /**
+   * Detects the language of a given text.
+   */
+  const detectLanguage = async (text: string): Promise<string> => {
+    const trimmedText = text.trim();
+    if (!trimmedText) {
+      throw new Error("Text is required for language detection");
+    }
+
+    const provider = await getActiveProvider();
+    return detectLanguageWithRetry(trimmedText, provider);
+  };
+
+  /**
    * Closes the underlying services.
    */
   const close = (): void => {
@@ -740,6 +789,7 @@ export function gptService(options: GptServiceOptions = {}): GptService {
     improveStylePrompt,
     explain,
     rephrase,
+    detectLanguage,
     close,
   };
 }

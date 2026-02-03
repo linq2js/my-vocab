@@ -1,8 +1,9 @@
 /**
  * TranslateModal component for MyVocab.
  *
- * A modal dialog with two tabs:
+ * A modal dialog with three tabs:
  * - Translate: Quick translation with style selection
+ * - Tools: Language tools (Rephrase, Explain, Read aloud, Detect language)
  * - Styles: CRUD interface for custom translation styles
  *
  * @example
@@ -48,7 +49,7 @@ export interface TranslateModalProps {
   autoTranslate?: boolean;
 }
 
-type TabType = "translate" | "styles";
+type TabType = "translate" | "tools" | "styles";
 
 /**
  * Common translation styles that can be added with one click.
@@ -109,6 +110,18 @@ export const TranslateModal = ({
   const [rephraseResult, setRephraseResult] = useState<TranslateResult | null>(null);
   const [isRephrasing, setIsRephrasing] = useState(false);
 
+  // Tools tab state
+  const [toolsText, setToolsText] = useState("");
+  const [toolsContext, setToolsContext] = useState("");
+  const [toolsLang, setToolsLang] = useState("en");
+  const [isDetectingLang, setIsDetectingLang] = useState(false);
+  const [detectedLangResult, setDetectedLangResult] = useState<string | null>(null);
+  const [toolsError, setToolsError] = useState<string | null>(null);
+
+  // Tools tab results (reusing explanation and rephrase results)
+  const [toolsExplanationResult, setToolsExplanationResult] = useState<string | null>(null);
+  const [toolsRephraseResult, setToolsRephraseResult] = useState<TranslateResult | null>(null);
+
   // Style editing state
   const [isEditingStyle, setIsEditingStyle] = useState(false);
   const [editingStyleId, setEditingStyleId] = useState<string | null>(null);
@@ -124,11 +137,16 @@ export const TranslateModal = ({
   // Textarea refs for auto-resize
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const contextTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const toolsTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const toolsContextTextareaRef = useRef<HTMLTextAreaElement>(null);
   
   // Refs for scrolling to results
   const translationResultRef = useRef<HTMLDivElement>(null);
   const explanationResultRef = useRef<HTMLDivElement>(null);
   const rephraseResultRef = useRef<HTMLDivElement>(null);
+  const toolsExplanationResultRef = useRef<HTMLDivElement>(null);
+  const toolsRephraseResultRef = useRef<HTMLDivElement>(null);
+  const detectedLangResultRef = useRef<HTMLDivElement>(null);
 
   // Get settings from store
   const settings = useSelector(settingsStore.settings$);
@@ -153,6 +171,15 @@ export const TranslateModal = ({
       setRephraseResult(null);
       setActiveTab("translate");
       setIsEditingStyle(false);
+
+      // Reset tools tab state
+      setToolsText("");
+      setToolsContext("");
+      setToolsLang("en");
+      setDetectedLangResult(null);
+      setToolsError(null);
+      setToolsExplanationResult(null);
+      setToolsRephraseResult(null);
 
       // Auto-translate if requested and we have text
       if (autoTranslate && initialText && initialSourceLang) {
@@ -289,52 +316,52 @@ export const TranslateModal = ({
   };
 
   /**
-   * Handle explain - get AI explanation of the source text's hidden meaning
+   * Handle Tools tab - Explain
    */
-  const handleExplain = useCallback(async () => {
-    if (!sourceText.trim()) {
-      setTranslationError("Please enter text to explain");
+  const handleToolsExplain = useCallback(async () => {
+    if (!toolsText.trim()) {
+      setToolsError("Please enter text to explain");
       return;
     }
 
     setIsExplaining(true);
-    setTranslationError(null);
-    setExplanationResult(null);
-    setTranslationResult(null);
+    setToolsError(null);
+    setToolsExplanationResult(null);
+    setToolsRephraseResult(null);
+    setDetectedLangResult(null);
 
     try {
       const gpt = gptService();
-      const explanation = await gpt.explain(sourceText, sourceLang);
-      setExplanationResult(explanation);
+      const explanation = await gpt.explain(toolsText, toolsLang);
+      setToolsExplanationResult(explanation);
       gpt.close();
       
-      // Scroll to result after a brief delay to ensure DOM update
       setTimeout(() => {
-        explanationResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        toolsExplanationResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }, 100);
     } catch (error) {
-      setTranslationError(
+      setToolsError(
         error instanceof Error ? error.message : "Explanation failed"
       );
     } finally {
       setIsExplaining(false);
     }
-  }, [sourceText, sourceLang]);
+  }, [toolsText, toolsLang]);
 
   /**
-   * Handle rephrase - rewrite text in same language with different style
+   * Handle Tools tab - Rephrase
    */
-  const handleRephrase = useCallback(async () => {
-    if (!sourceText.trim()) {
-      setTranslationError("Please enter text to rephrase");
+  const handleToolsRephrase = useCallback(async () => {
+    if (!toolsText.trim()) {
+      setToolsError("Please enter text to rephrase");
       return;
     }
 
     setIsRephrasing(true);
-    setTranslationError(null);
-    setRephraseResult(null);
-    setTranslationResult(null);
-    setExplanationResult(null);
+    setToolsError(null);
+    setToolsRephraseResult(null);
+    setToolsExplanationResult(null);
+    setDetectedLangResult(null);
 
     try {
       const gpt = gptService();
@@ -342,38 +369,88 @@ export const TranslateModal = ({
         ? translationStyles.find((s) => s.id === selectedStyleId)
         : null;
 
-      // Build the prompt with style and context
       let fullPrompt = style?.prompt || "";
-      if (context.trim()) {
-        const contextInstruction = `Context: ${context.trim()}`;
+      if (toolsContext.trim()) {
+        const contextInstruction = `Context: ${toolsContext.trim()}`;
         fullPrompt = fullPrompt
           ? `${fullPrompt}. ${contextInstruction}`
           : contextInstruction;
       }
 
       const result = await gpt.rephrase(
-        sourceText,
-        sourceLang,
+        toolsText,
+        toolsLang,
         selectedStyleId || undefined,
         fullPrompt || undefined,
-        context || undefined
+        toolsContext || undefined
       );
 
-      setRephraseResult(result);
+      setToolsRephraseResult(result);
       gpt.close();
       
-      // Scroll to result after a brief delay to ensure DOM update
       setTimeout(() => {
-        rephraseResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        toolsRephraseResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }, 100);
     } catch (error) {
-      setTranslationError(
+      setToolsError(
         error instanceof Error ? error.message : "Rephrase failed"
       );
     } finally {
       setIsRephrasing(false);
     }
-  }, [sourceText, sourceLang, selectedStyleId, translationStyles, context]);
+  }, [toolsText, toolsLang, selectedStyleId, translationStyles, toolsContext]);
+
+  /**
+   * Handle Tools tab - Read Aloud
+   */
+  const handleToolsSpeak = () => {
+    if (!toolsText.trim() || !isSpeechSupported) return;
+    speak(toolsText, toolsLang);
+  };
+
+  /**
+   * Handle Tools tab - Detect Language
+   */
+  const handleDetectLanguage = useCallback(async () => {
+    if (!toolsText.trim()) {
+      setToolsError("Please enter text to detect language");
+      return;
+    }
+
+    setIsDetectingLang(true);
+    setToolsError(null);
+    setDetectedLangResult(null);
+    setToolsExplanationResult(null);
+    setToolsRephraseResult(null);
+
+    try {
+      const gpt = gptService();
+      const detectedCode = await gpt.detectLanguage(toolsText);
+      
+      // Find the language name from the code
+      const detectedLang = LANGUAGES.find(l => l.code === detectedCode);
+      const langName = detectedLang?.name || detectedCode;
+      
+      setDetectedLangResult(langName);
+      
+      // Also update the toolsLang to the detected language if found
+      if (detectedLang) {
+        setToolsLang(detectedCode);
+      }
+      
+      gpt.close();
+      
+      setTimeout(() => {
+        detectedLangResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 100);
+    } catch (error) {
+      setToolsError(
+        error instanceof Error ? error.message : "Language detection failed"
+      );
+    } finally {
+      setIsDetectingLang(false);
+    }
+  }, [toolsText]);
 
   /**
    * Handle clear cache
@@ -566,6 +643,17 @@ export const TranslateModal = ({
         onClick={() => setActiveTab("translate")}
       >
         Translate
+      </button>
+      <button
+        type="button"
+        className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${
+          activeTab === "tools"
+            ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+        }`}
+        onClick={() => setActiveTab("tools")}
+      >
+        Tools
       </button>
       <button
         type="button"
@@ -938,23 +1026,383 @@ export const TranslateModal = ({
             )}
           </div>
 
-          {/* Fixed Bottom Bar with Explain, Rephrase, and Translate Buttons */}
+          {/* Fixed Bottom Bar with Translate Button */}
+          <div className="shrink-0 p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <Button
+              onClick={() => handleTranslate()}
+              disabled={!sourceText.trim() || isTranslating || sourceLang === targetLang}
+              loading={isTranslating}
+              fullWidth
+              className="text-sm"
+            >
+              {isTranslating ? "..." : "Translate"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Tools Tab */}
+      {activeTab === "tools" && (
+        <div className="flex flex-col flex-1 min-h-0">
+          {/* Scrollable Content Area */}
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-4 p-4">
+            {/* Language Selection with Detect button */}
+            <div>
+              <label
+                htmlFor={`${selectId}-tools-lang`}
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
+                Language
+              </label>
+              <div className="flex gap-2">
+                <select
+                  id={`${selectId}-tools-lang`}
+                  value={toolsLang}
+                  onChange={(e) => {
+                    setToolsLang(e.target.value);
+                    setDetectedLangResult(null);
+                  }}
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+                >
+                  {LANGUAGES.map((lang) => (
+                    <option key={lang.code} value={lang.code}>
+                      {lang.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={handleDetectLanguage}
+                  disabled={!toolsText.trim() || isDetectingLang}
+                  className="px-3 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-600 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                >
+                  {isDetectingLang ? "..." : "Detect"}
+                </button>
+              </div>
+            </div>
+
+            {/* Input Text */}
+            <div>
+              <label
+                htmlFor={`${selectId}-tools-text`}
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
+                Input text
+              </label>
+              <div className="relative">
+                <textarea
+                  ref={toolsTextareaRef}
+                  id={`${selectId}-tools-text`}
+                  value={toolsText}
+                  onChange={(e) => {
+                    setToolsText(e.target.value);
+                    const textarea = e.target;
+                    textarea.style.height = 'auto';
+                    textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+                  }}
+                  placeholder="Enter text..."
+                  rows={2}
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none overflow-hidden"
+                  style={{ minHeight: '60px', maxHeight: '200px' }}
+                />
+                {toolsText ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setToolsText("");
+                      if (toolsTextareaRef.current) {
+                        toolsTextareaRef.current.style.height = 'auto';
+                      }
+                    }}
+                    className="absolute top-2 right-2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+                    aria-label="Clear text"
+                  >
+                    <Icon name="close" size="sm" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const text = await navigator.clipboard.readText();
+                        if (text) {
+                          setToolsText(text);
+                          if (toolsTextareaRef.current) {
+                            toolsTextareaRef.current.style.height = 'auto';
+                            toolsTextareaRef.current.style.height = `${Math.min(toolsTextareaRef.current.scrollHeight, 200)}px`;
+                          }
+                        }
+                      } catch {
+                        // Clipboard access denied
+                      }
+                    }}
+                    className="absolute top-2 right-2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+                    aria-label="Paste from clipboard"
+                  >
+                    <Icon name="clipboard" size="sm" />
+                  </button>
+                )}
+              </div>
+              {/* Read aloud button */}
+              {isSpeechSupported && toolsText.trim() && (
+                <button
+                  type="button"
+                  onClick={handleToolsSpeak}
+                  className="mt-2 flex items-center gap-1.5 text-sm text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
+                >
+                  <Icon name="volume" size="sm" />
+                  Read aloud
+                </button>
+              )}
+            </div>
+
+            {/* Style Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Style
+                <span className="ml-1 text-xs font-normal text-gray-400 dark:text-gray-500">
+                  (for rephrase)
+                </span>
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedStyleId(null)}
+                  className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
+                    selectedStyleId === null
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+                  }`}
+                >
+                  No Style
+                </button>
+                {translationStyles.map((style) => (
+                  <button
+                    key={style.id}
+                    type="button"
+                    onClick={() => setSelectedStyleId(style.id)}
+                    className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
+                      selectedStyleId === style.id
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+                    }`}
+                  >
+                    {style.name}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab("styles");
+                    setIsEditingStyle(true);
+                    setEditingStyleId(null);
+                    setStyleName("");
+                    setStylePrompt("");
+                  }}
+                  className="px-3 py-1.5 text-sm rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                  aria-label="Add new style"
+                >
+                  <Icon name="plus" size="sm" />
+                </button>
+              </div>
+            </div>
+
+            {/* Context Input */}
+            <div>
+              <label
+                htmlFor={`${selectId}-tools-context`}
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
+                Context
+                <span className="ml-1 text-xs font-normal text-gray-400 dark:text-gray-500">
+                  (optional)
+                </span>
+              </label>
+              <div className="relative">
+                <textarea
+                  ref={toolsContextTextareaRef}
+                  id={`${selectId}-tools-context`}
+                  value={toolsContext}
+                  onChange={(e) => {
+                    setToolsContext(e.target.value);
+                    const textarea = e.target;
+                    textarea.style.height = 'auto';
+                    textarea.style.height = `${Math.min(textarea.scrollHeight, 150)}px`;
+                  }}
+                  placeholder="e.g., topic, background info..."
+                  rows={1}
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none overflow-hidden text-sm leading-5"
+                  style={{ minHeight: '38px', maxHeight: '150px' }}
+                />
+                {toolsContext ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setToolsContext("");
+                      if (toolsContextTextareaRef.current) {
+                        toolsContextTextareaRef.current.style.height = 'auto';
+                      }
+                    }}
+                    className="absolute top-2 right-2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+                    aria-label="Clear context"
+                  >
+                    <Icon name="close" size="sm" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const text = await navigator.clipboard.readText();
+                        if (text) {
+                          setToolsContext(text);
+                          if (toolsContextTextareaRef.current) {
+                            toolsContextTextareaRef.current.style.height = 'auto';
+                            toolsContextTextareaRef.current.style.height = `${Math.min(toolsContextTextareaRef.current.scrollHeight, 150)}px`;
+                          }
+                        }
+                      } catch {
+                        // Clipboard access denied
+                      }
+                    }}
+                    className="absolute top-2 right-2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+                    aria-label="Paste from clipboard"
+                  >
+                    <Icon name="clipboard" size="sm" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Error Message */}
+            {toolsError && (
+              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <p className="text-sm text-red-600 dark:text-red-400">
+                  {toolsError}
+                </p>
+              </div>
+            )}
+
+            {/* Detected Language Result */}
+            {detectedLangResult && (
+              <div ref={detectedLangResultRef} className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                    Detected Language
+                  </span>
+                </div>
+                <p className="text-gray-900 dark:text-gray-100">
+                  {detectedLangResult}
+                </p>
+              </div>
+            )}
+
+            {/* Explanation Result */}
+            {toolsExplanationResult && (
+              <div ref={toolsExplanationResultRef} className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                    Explanation
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {isSpeechSupported && (
+                      <button
+                        type="button"
+                        onClick={() => speak(toolsExplanationResult, toolsLang)}
+                        className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+                        aria-label="Read aloud"
+                      >
+                        <Icon name="volume" size="sm" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!toolsExplanationResult) return;
+                        try {
+                          await navigator.clipboard.writeText(toolsExplanationResult);
+                          setCopySuccess(true);
+                          setTimeout(() => setCopySuccess(false), 2000);
+                        } catch {
+                          // Fallback
+                        }
+                      }}
+                      className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+                      aria-label="Copy explanation"
+                    >
+                      {copySuccess ? (
+                        <Icon name="check" size="sm" color="success" />
+                      ) : (
+                        <Icon name="copy" size="sm" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+                <p className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap">
+                  {toolsExplanationResult}
+                </p>
+              </div>
+            )}
+
+            {/* Rephrase Result */}
+            {toolsRephraseResult && (
+              <div ref={toolsRephraseResultRef} className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                    Rephrased
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {toolsRephraseResult.fromCache && (
+                      <span className="px-2 py-1 text-xs rounded bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                        cached
+                      </span>
+                    )}
+                    {isSpeechSupported && (
+                      <button
+                        type="button"
+                        onClick={() => speak(toolsRephraseResult.text, toolsLang)}
+                        className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+                        aria-label="Read aloud"
+                      >
+                        <Icon name="volume" size="sm" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!toolsRephraseResult?.text) return;
+                        try {
+                          await navigator.clipboard.writeText(toolsRephraseResult.text);
+                          setCopySuccess(true);
+                          setTimeout(() => setCopySuccess(false), 2000);
+                        } catch {
+                          // Fallback
+                        }
+                      }}
+                      className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+                      aria-label="Copy rephrased text"
+                    >
+                      {copySuccess ? (
+                        <Icon name="check" size="sm" color="success" />
+                      ) : (
+                        <Icon name="copy" size="sm" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+                <p className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap">
+                  {toolsRephraseResult.text}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Fixed Bottom Bar with Action Buttons */}
           <div className="shrink-0 p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
             <div className="flex gap-2">
               <Button
-                variant="secondary"
-                onClick={handleExplain}
-                disabled={!sourceText.trim() || isTranslating || isExplaining || isRephrasing}
-                loading={isExplaining}
-                fullWidth
-                className="text-sm"
-              >
-                {isExplaining ? "..." : "Explain"}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleRephrase}
-                disabled={!sourceText.trim() || isTranslating || isExplaining || isRephrasing}
+                onClick={handleToolsRephrase}
+                disabled={!toolsText.trim() || isExplaining || isRephrasing || isDetectingLang}
                 loading={isRephrasing}
                 fullWidth
                 className="text-sm"
@@ -962,13 +1410,13 @@ export const TranslateModal = ({
                 {isRephrasing ? "..." : "Rephrase"}
               </Button>
               <Button
-                onClick={() => handleTranslate()}
-                disabled={!sourceText.trim() || isTranslating || isExplaining || isRephrasing || sourceLang === targetLang}
-                loading={isTranslating}
+                onClick={handleToolsExplain}
+                disabled={!toolsText.trim() || isExplaining || isRephrasing || isDetectingLang}
+                loading={isExplaining}
                 fullWidth
                 className="text-sm"
               >
-                {isTranslating ? "..." : "Translate"}
+                {isExplaining ? "..." : "Explain"}
               </Button>
             </div>
           </div>

@@ -212,6 +212,17 @@ export const VocabCard = ({
 
             {/* Action Section */}
             <div className="flex items-center gap-1 shrink-0">
+              {/* Translate Button */}
+              {showTranslateButtons && (
+                <button
+                  onClick={() => handleTranslateText(text)}
+                  className="p-2 rounded-lg text-gray-500 hover:text-purple-600 hover:bg-purple-50 dark:text-gray-400 dark:hover:text-purple-400 dark:hover:bg-purple-900/20 transition-colors"
+                  aria-label="Translate"
+                >
+                  <Icon name="translate" size="sm" />
+                </button>
+              )}
+
               {/* Expand Button */}
               {hasExpandableContent && !compact && (
                 <button
@@ -330,14 +341,25 @@ export const VocabCard = ({
           </div>
 
           {/* Text (bigger font) */}
-          <h3 className="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-gray-100">
-            {language && (
-              <span className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase">
-                [{language}]
-              </span>
+          <div className="flex items-center gap-2">
+            <h3 className="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-gray-100">
+              {language && (
+                <span className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase">
+                  [{language}]
+                </span>
+              )}
+              {text}
+            </h3>
+            {showTranslateButtons && (
+              <button
+                onClick={() => handleTranslateText(text)}
+                className="p-1 rounded text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:text-purple-400 dark:hover:bg-purple-900/20 transition-colors"
+                aria-label="Translate text"
+              >
+                <Icon name="translate" size="sm" />
+              </button>
             )}
-            {text}
-          </h3>
+          </div>
 
           {/* IPA, Speak Button, Part of Speech, and Categories */}
           <div className="flex items-center gap-2 text-base text-gray-500 dark:text-gray-400">

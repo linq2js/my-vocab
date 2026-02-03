@@ -468,4 +468,57 @@ Provide a clear, helpful explanation that reveals what the text really means bey
 
     return content.trim();
   }
+
+  /**
+   * Detects the language of a given text.
+   *
+   * @param text - The text to analyze
+   * @returns Promise resolving to the detected language code (e.g., 'en', 'fr', 'es')
+   * @throws Error if the API call fails
+   */
+  async detectLanguage(text: string): Promise<string> {
+    const systemContent = `You are a language detection expert. Analyze the given text and return ONLY the ISO 639-1 language code (e.g., 'en' for English, 'fr' for French, 'es' for Spanish, 'de' for German, 'ja' for Japanese, 'ko' for Korean, 'zh' for Chinese, 'vi' for Vietnamese, etc.).
+
+Return ONLY the 2-letter language code, nothing else.`;
+
+    const userContent = `Detect the language of this text:\n\n${text}`;
+
+    const response = await fetch(OPENAI_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: this.model,
+        messages: [
+          { role: 'system', content: systemContent },
+          { role: 'user', content: userContent },
+        ],
+        temperature: 0.1, // Very low for consistent detection
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage =
+        (errorData as { error?: { message?: string } })?.error?.message ||
+        `${response.status} ${response.statusText}`;
+      throw new Error(`OpenAI API error: ${errorMessage}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.choices || data.choices.length === 0) {
+      throw new Error('OpenAI API returned no response');
+    }
+
+    const content = data.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('OpenAI API returned empty content');
+    }
+
+    // Clean up the response - should be just a language code
+    return content.trim().toLowerCase().replace(/['"]/g, '');
+  }
 }
