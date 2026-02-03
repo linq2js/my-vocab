@@ -405,4 +405,67 @@ Provide a clear, helpful explanation that reveals what the text really means bey
 
     return content.trim();
   }
+
+  /**
+   * Rephrases text in the same language with a specific style/tone.
+   *
+   * @param text - The text to rephrase
+   * @param language - The language of the text
+   * @param stylePrompt - Optional style instruction
+   * @param context - Optional context for more accurate rephrasing
+   * @returns Promise resolving to the rephrased text
+   * @throws Error if the API call fails
+   */
+  async rephrase(text: string, language: string, stylePrompt?: string, context?: string): Promise<string> {
+    let systemContent = `You are a writing assistant that rephrases text while preserving its meaning. Rephrase the given text in ${language}.`;
+    
+    if (stylePrompt) {
+      systemContent += ` ${stylePrompt}`;
+    }
+    
+    systemContent += ' Return only the rephrased text, nothing else.';
+
+    let userContent = `Rephrase the following text:\n\n${text}`;
+    
+    if (context) {
+      userContent = `Context: ${context}\n\n${userContent}`;
+    }
+
+    const response = await fetch(OPENAI_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: this.model,
+        messages: [
+          { role: 'system', content: systemContent },
+          { role: 'user', content: userContent },
+        ],
+        temperature: 0.5,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage =
+        (errorData as { error?: { message?: string } })?.error?.message ||
+        `${response.status} ${response.statusText}`;
+      throw new Error(`OpenAI API error: ${errorMessage}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.choices || data.choices.length === 0) {
+      throw new Error('OpenAI API returned no response');
+    }
+
+    const content = data.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('OpenAI API returned empty content');
+    }
+
+    return content.trim();
+  }
 }

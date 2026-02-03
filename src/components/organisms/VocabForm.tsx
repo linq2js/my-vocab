@@ -539,36 +539,6 @@ export const VocabForm = ({
         </p>
       </div>
 
-      {/* Description Textarea */}
-      <div>
-        <label
-          htmlFor={`${formId}-description`}
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-        >
-          My Notes
-        </label>
-        <textarea
-          id={`${formId}-description`}
-          value={description}
-          onChange={handleDescriptionChange}
-          placeholder="Add your own notes or description"
-          disabled={isFormDisabled}
-          rows={3}
-          className="w-full px-4 py-2 text-base border rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed resize-y"
-        />
-      </div>
-
-      {/* Custom Tags Input */}
-      <TagInput
-        label="Custom Tags"
-        tags={customTags}
-        onChange={handleCustomTagsChange}
-        placeholder="Type to search or add..."
-        disabled={isFormDisabled}
-        helperText="Type to see existing tags or add new ones"
-        suggestions={availableCustomTags}
-      />
-
       {/* GPT Enrichment Section */}
       <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
         <div className="flex items-center justify-between mb-3">
@@ -718,6 +688,36 @@ export const VocabForm = ({
           </div>
         )}
       </div>
+
+      {/* Description Textarea */}
+      <div>
+        <label
+          htmlFor={`${formId}-description`}
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+        >
+          My Notes
+        </label>
+        <textarea
+          id={`${formId}-description`}
+          value={description}
+          onChange={handleDescriptionChange}
+          placeholder="Add your own notes or description"
+          disabled={isFormDisabled}
+          rows={3}
+          className="w-full px-4 py-2 text-base border rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed resize-y"
+        />
+      </div>
+
+      {/* Custom Tags Input */}
+      <TagInput
+        label="Custom Tags"
+        tags={customTags}
+        onChange={handleCustomTagsChange}
+        placeholder="Type to search or add..."
+        disabled={isFormDisabled}
+        helperText="Type to see existing tags or add new ones"
+        suggestions={availableCustomTags}
+      />
 
       {/* Form Actions */}
       <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">

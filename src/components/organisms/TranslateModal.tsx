@@ -105,6 +105,10 @@ export const TranslateModal = ({
   const [explanationResult, setExplanationResult] = useState<string | null>(null);
   const [isExplaining, setIsExplaining] = useState(false);
 
+  // Rephrase state
+  const [rephraseResult, setRephraseResult] = useState<TranslateResult | null>(null);
+  const [isRephrasing, setIsRephrasing] = useState(false);
+
   // Style editing state
   const [isEditingStyle, setIsEditingStyle] = useState(false);
   const [editingStyleId, setEditingStyleId] = useState<string | null>(null);
@@ -124,6 +128,7 @@ export const TranslateModal = ({
   // Refs for scrolling to results
   const translationResultRef = useRef<HTMLDivElement>(null);
   const explanationResultRef = useRef<HTMLDivElement>(null);
+  const rephraseResultRef = useRef<HTMLDivElement>(null);
 
   // Get settings from store
   const settings = useSelector(settingsStore.settings$);
@@ -145,6 +150,7 @@ export const TranslateModal = ({
       setTranslationResult(null);
       setTranslationError(null);
       setExplanationResult(null);
+      setRephraseResult(null);
       setActiveTab("translate");
       setIsEditingStyle(false);
 
@@ -314,6 +320,60 @@ export const TranslateModal = ({
       setIsExplaining(false);
     }
   }, [sourceText, sourceLang]);
+
+  /**
+   * Handle rephrase - rewrite text in same language with different style
+   */
+  const handleRephrase = useCallback(async () => {
+    if (!sourceText.trim()) {
+      setTranslationError("Please enter text to rephrase");
+      return;
+    }
+
+    setIsRephrasing(true);
+    setTranslationError(null);
+    setRephraseResult(null);
+    setTranslationResult(null);
+    setExplanationResult(null);
+
+    try {
+      const gpt = gptService();
+      const style = selectedStyleId
+        ? translationStyles.find((s) => s.id === selectedStyleId)
+        : null;
+
+      // Build the prompt with style and context
+      let fullPrompt = style?.prompt || "";
+      if (context.trim()) {
+        const contextInstruction = `Context: ${context.trim()}`;
+        fullPrompt = fullPrompt
+          ? `${fullPrompt}. ${contextInstruction}`
+          : contextInstruction;
+      }
+
+      const result = await gpt.rephrase(
+        sourceText,
+        sourceLang,
+        selectedStyleId || undefined,
+        fullPrompt || undefined,
+        context || undefined
+      );
+
+      setRephraseResult(result);
+      gpt.close();
+      
+      // Scroll to result after a brief delay to ensure DOM update
+      setTimeout(() => {
+        rephraseResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 100);
+    } catch (error) {
+      setTranslationError(
+        error instanceof Error ? error.message : "Rephrase failed"
+      );
+    } finally {
+      setIsRephrasing(false);
+    }
+  }, [sourceText, sourceLang, selectedStyleId, translationStyles, context]);
 
   /**
    * Handle clear cache
@@ -834,27 +894,81 @@ export const TranslateModal = ({
                 </p>
               </div>
             )}
+
+            {/* Rephrase Result */}
+            {rephraseResult && (
+              <div ref={rephraseResultRef} className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                    Rephrased
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {rephraseResult.fromCache && (
+                      <span className="px-2 py-1 text-xs rounded bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                        cached
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!rephraseResult?.text) return;
+                        try {
+                          await navigator.clipboard.writeText(rephraseResult.text);
+                          setCopySuccess(true);
+                          setTimeout(() => setCopySuccess(false), 2000);
+                        } catch {
+                          // Fallback
+                        }
+                      }}
+                      className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+                      aria-label="Copy rephrased text"
+                    >
+                      {copySuccess ? (
+                        <Icon name="check" size="sm" color="success" />
+                      ) : (
+                        <Icon name="copy" size="sm" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+                <p className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap">
+                  {rephraseResult.text}
+                </p>
+              </div>
+            )}
           </div>
 
-          {/* Fixed Bottom Bar with Explain and Translate Buttons */}
+          {/* Fixed Bottom Bar with Explain, Rephrase, and Translate Buttons */}
           <div className="shrink-0 p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <Button
                 variant="secondary"
                 onClick={handleExplain}
-                disabled={!sourceText.trim() || isTranslating || isExplaining}
+                disabled={!sourceText.trim() || isTranslating || isExplaining || isRephrasing}
                 loading={isExplaining}
                 fullWidth
+                className="text-sm"
               >
-                {isExplaining ? "Explaining..." : "Explain"}
+                {isExplaining ? "..." : "Explain"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleRephrase}
+                disabled={!sourceText.trim() || isTranslating || isExplaining || isRephrasing}
+                loading={isRephrasing}
+                fullWidth
+                className="text-sm"
+              >
+                {isRephrasing ? "..." : "Rephrase"}
               </Button>
               <Button
                 onClick={() => handleTranslate()}
-                disabled={!sourceText.trim() || isTranslating || isExplaining}
+                disabled={!sourceText.trim() || isTranslating || isExplaining || isRephrasing || sourceLang === targetLang}
                 loading={isTranslating}
                 fullWidth
+                className="text-sm"
               >
-                {isTranslating ? "Translating..." : "Translate"}
+                {isTranslating ? "..." : "Translate"}
               </Button>
             </div>
           </div>

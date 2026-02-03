@@ -123,4 +123,22 @@ export interface IGptProvider {
    * ```
    */
   explain(text: string, language: string): Promise<string>;
+
+  /**
+   * Rephrases text in the same language with a specific style/tone.
+   *
+   * @param text - The text to rephrase
+   * @param language - The language of the text
+   * @param stylePrompt - Optional style instruction (e.g., 'Use formal business tone')
+   * @param context - Optional context for more accurate rephrasing
+   * @returns Promise resolving to the rephrased text
+   * @throws Error if the API call fails
+   *
+   * @example
+   * ```typescript
+   * const rephrased = await provider.rephrase('gonna grab some food', 'en', 'Use formal tone');
+   * console.log(rephrased); // 'I am going to get something to eat'
+   * ```
+   */
+  rephrase(text: string, language: string, stylePrompt?: string, context?: string): Promise<string>;
 }

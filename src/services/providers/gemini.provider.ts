@@ -448,4 +448,77 @@ Provide a clear, helpful explanation that reveals what the text really means bey
 
     return content.trim();
   }
+
+  /**
+   * Rephrases text in the same language with a specific style/tone.
+   *
+   * @param text - The text to rephrase
+   * @param language - The language of the text
+   * @param stylePrompt - Optional style instruction
+   * @param context - Optional context for more accurate rephrasing
+   * @returns Promise resolving to the rephrased text
+   * @throws Error if the API call fails
+   */
+  async rephrase(text: string, language: string, stylePrompt?: string, context?: string): Promise<string> {
+    const url = `${GEMINI_API_BASE}/${this.model}:generateContent?key=${this.apiKey}`;
+
+    let prompt = `You are a writing assistant that rephrases text while preserving its meaning. Rephrase the following text in ${language}.`;
+    
+    if (stylePrompt) {
+      prompt += ` ${stylePrompt}`;
+    }
+    
+    prompt += ' Return only the rephrased text, nothing else.';
+    
+    if (context) {
+      prompt += `\n\nContext: ${context}`;
+    }
+    
+    prompt += `\n\nText to rephrase:\n${text}`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: prompt }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.5,
+          topP: 0.8,
+          topK: 40,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage =
+        (errorData as { error?: { message?: string } })?.error?.message ||
+        `${response.status} ${response.statusText}`;
+      throw new Error(`Gemini API error: ${errorMessage}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.candidates || data.candidates.length === 0) {
+      throw new Error('Gemini API returned no response');
+    }
+
+    const parts = data.candidates[0]?.content?.parts;
+    if (!parts || parts.length === 0) {
+      throw new Error('Gemini API returned empty content');
+    }
+
+    const content = parts[0]?.text;
+    if (!content) {
+      throw new Error('Gemini API returned empty content');
+    }
+
+    return content.trim();
+  }
 }

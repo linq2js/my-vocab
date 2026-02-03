@@ -162,6 +162,26 @@ export interface GptService {
   explain: (text: string, language: string) => Promise<string>;
 
   /**
+   * Rephrases text in the same language with a specific style/tone.
+   * Checks cache first, then calls the active GPT provider.
+   *
+   * @param text - The text to rephrase
+   * @param language - The language of the text
+   * @param styleId - Optional style ID for cache key
+   * @param stylePrompt - Optional style instruction for the AI
+   * @param context - Optional context for more accurate rephrasing (hashed for cache key)
+   * @returns Promise resolving to rephrase result with cache metadata
+   * @throws Error if no provider is configured, API key is missing, or all retries fail
+   */
+  rephrase: (
+    text: string,
+    language: string,
+    styleId?: string,
+    stylePrompt?: string,
+    context?: string
+  ) => Promise<TranslateResult>;
+
+  /**
    * Closes the underlying services.
    * Important for cleanup in tests.
    */
@@ -582,6 +602,50 @@ export function gptService(options: GptServiceOptions = {}): GptService {
   };
 
   /**
+   * Generates a cache key for rephrase results.
+   */
+  const generateRephraseCacheKey = (
+    text: string,
+    language: string,
+    styleId?: string,
+    context?: string
+  ): string => {
+    const normalizedText = text.trim().toLowerCase();
+    const contextHash = hashString(context?.trim().toLowerCase() || "");
+    return `rephrase:${language}:${styleId || "none"}:${contextHash}:${normalizedText}`;
+  };
+
+  /**
+   * Rephrases text with retry logic.
+   */
+  const rephraseWithRetry = async (
+    text: string,
+    language: string,
+    provider: IGptProvider,
+    stylePrompt?: string,
+    context?: string
+  ): Promise<string> => {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await provider.rephrase(text, language, stylePrompt, context);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        if (attempt < maxRetries - 1) {
+          const delayMs = calculateBackoffDelay(attempt, RETRY_DELAY_BASE_MS);
+          await delay(delayMs);
+        }
+      }
+    }
+
+    throw new Error(
+      `Failed to rephrase text after ${maxRetries} attempts: ${lastError?.message}`
+    );
+  };
+
+  /**
    * Explains the hidden/deeper meaning of text in the same language.
    * Does not use caching as explanations may vary.
    */
@@ -602,6 +666,65 @@ export function gptService(options: GptServiceOptions = {}): GptService {
   };
 
   /**
+   * Rephrases text in the same language with a specific style/tone.
+   */
+  const rephrase = async (
+    text: string,
+    language: string,
+    styleId?: string,
+    stylePrompt?: string,
+    context?: string
+  ): Promise<TranslateResult> => {
+    // Validate inputs
+    const trimmedText = text.trim();
+    if (!trimmedText) {
+      throw new Error("Text is required for rephrasing");
+    }
+
+    const trimmedLanguage = language.trim();
+    if (!trimmedLanguage) {
+      throw new Error("Language is required for rephrasing");
+    }
+
+    // Generate cache key (includes context hash)
+    const cacheKey = generateRephraseCacheKey(
+      trimmedText,
+      trimmedLanguage,
+      styleId,
+      context
+    );
+
+    // Check cache first
+    const cached = await cache.getTranslation(cacheKey);
+    if (cached) {
+      return {
+        text: cached,
+        fromCache: true,
+        cacheKey,
+      };
+    }
+
+    // Get active provider and rephrase
+    const provider = await getActiveProvider();
+    const rephrasedText = await rephraseWithRetry(
+      trimmedText,
+      trimmedLanguage,
+      provider,
+      stylePrompt,
+      context
+    );
+
+    // Cache the result
+    await cache.setTranslation(cacheKey, rephrasedText);
+
+    return {
+      text: rephrasedText,
+      fromCache: false,
+      cacheKey,
+    };
+  };
+
+  /**
    * Closes the underlying services.
    */
   const close = (): void => {
@@ -616,6 +739,7 @@ export function gptService(options: GptServiceOptions = {}): GptService {
     clearTranslationCache,
     improveStylePrompt,
     explain,
+    rephrase,
     close,
   };
 }
