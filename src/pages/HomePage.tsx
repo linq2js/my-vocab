@@ -101,6 +101,7 @@ export const HomePage = (): React.ReactElement => {
       predefinedTags:
         filters.predefinedTags.length > 0 ? filters.predefinedTags : undefined,
       noPredefinedTag: filters.noPredefinedTag || undefined,
+      noCustomTag: filters.noCustomTag || undefined,
     });
 
     // Apply part of speech filter

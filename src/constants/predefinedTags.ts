@@ -189,6 +189,11 @@ export function separateTags(tags: string[]): {
 export const NO_PREDEFINED_TAG_FILTER = '__no_predefined_tag__';
 
 /**
+ * Filter constant for entries with no custom tags.
+ */
+export const NO_CUSTOM_TAG_FILTER = '__no_custom_tag__';
+
+/**
  * Standard parts of speech that map to "vocabulary" category.
  */
 const VOCABULARY_PARTS_OF_SPEECH = new Set([

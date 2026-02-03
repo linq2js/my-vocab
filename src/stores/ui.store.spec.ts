@@ -103,6 +103,22 @@ describe('UI Store', () => {
         expect(store.hasActiveFilters()).toBe(true);
       });
 
+      it('should detect active filters for noCustomTag', () => {
+        store.setFilters({ noCustomTag: true });
+        expect(store.hasActiveFilters()).toBe(true);
+      });
+
+      it('should update noCustomTag filter', () => {
+        store.setFilters({ noCustomTag: true });
+        expect(store.filters$.get().noCustomTag).toBe(true);
+      });
+
+      it('should reset noCustomTag to false on resetFilters', () => {
+        store.setFilters({ noCustomTag: true });
+        store.resetFilters();
+        expect(store.filters$.get().noCustomTag).toBe(false);
+      });
+
       it('should detect active filters for partOfSpeech', () => {
         store.setFilters({ partOfSpeech: 'noun' });
         expect(store.hasActiveFilters()).toBe(true);

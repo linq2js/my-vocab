@@ -35,7 +35,7 @@ import { useSelector } from 'atomirx/react';
 import { uiStore } from '../../stores/ui.store';
 import { vocabStore } from '../../stores/vocab.store';
 import { LANGUAGES } from '../../constants/languages';
-import { separateTags } from '../../constants/predefinedTags';
+import { separateTags, NO_CUSTOM_TAG_FILTER } from '../../constants/predefinedTags';
 import { Icon } from '../atoms/Icon';
 import { Button } from '../atoms/Button';
 
@@ -199,12 +199,18 @@ export const FilterPanel = ({
 
   /**
    * Handle custom tag filter change.
+   * Supports "No Tag" option to filter entries without custom tags.
    */
   const handleCustomTagChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
       const value = e.target.value;
-      // Store as array (supports multiple tags in future)
-      uiStore.setFilters({ tags: value ? [value] : [] });
+      if (value === NO_CUSTOM_TAG_FILTER) {
+        // Filter for entries with no custom tags
+        uiStore.setFilters({ tags: [], noCustomTag: true });
+      } else {
+        // Regular tag filter or reset
+        uiStore.setFilters({ tags: value ? [value] : [], noCustomTag: false });
+      }
     },
     []
   );
@@ -301,13 +307,14 @@ export const FilterPanel = ({
           </label>
           <select
             id="filter-custom-tag"
-            value={filters.tags[0] ?? ''}
+            value={filters.noCustomTag ? NO_CUSTOM_TAG_FILTER : (filters.tags[0] ?? '')}
             onChange={handleCustomTagChange}
             disabled={disabled}
             className={selectClasses}
             aria-label="Filter by custom tag"
           >
             <option value="">All Tags</option>
+            <option value={NO_CUSTOM_TAG_FILTER}>No Tag</option>
             {availableCustomTags.map((tag) => (
               <option key={tag} value={tag}>
                 {tag}

@@ -20,6 +20,7 @@ vi.mock('../../stores/ui.store', async () => {
           language: null,
           contentTypes: [],
           tags: [],
+          noCustomTag: false,
         })),
       },
       setFilters: vi.fn(),
@@ -42,6 +43,7 @@ describe('FilterPanel', () => {
       language: null,
       contentTypes: [],
       tags: [],
+      noCustomTag: false,
     });
     (uiStore.hasActiveFilters as ReturnType<typeof vi.fn>).mockReturnValue(false);
   });

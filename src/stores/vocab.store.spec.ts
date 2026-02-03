@@ -305,6 +305,24 @@ describe('vocabStore', () => {
       expect(filtered).toHaveLength(2);
     });
 
+    it('should filter by noCustomTag (entries with no custom tags)', async () => {
+      // Add item with only predefined tag (no custom tags)
+      await store.add(
+        createMockVocabulary({
+          id: 'v4',
+          text: 'no custom tag item',
+          language: 'en',
+          tags: ['vocabulary'], // only predefined tag
+        })
+      );
+
+      const filtered = store.filter({ noCustomTag: true });
+
+      // Should only include items with no custom tags
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0]?.id).toBe('v4');
+    });
+
     it('should filter by search text (case-insensitive)', () => {
       const filtered = store.filter({ searchText: 'HELLO' });
 

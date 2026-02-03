@@ -25,7 +25,7 @@ vi.mock('../stores/ui.store', () => ({
       get: vi.fn(() => ''),
     },
     filters$: {
-      get: vi.fn(() => ({ language: null, predefinedTags: [], noPredefinedTag: false, tags: [], partOfSpeech: null })),
+      get: vi.fn(() => ({ language: null, predefinedTags: [], noPredefinedTag: false, noCustomTag: false, tags: [], partOfSpeech: null })),
     },
     modalState$: {
       get: vi.fn(() => ({ isOpen: false, type: null, data: null })),
@@ -244,6 +244,7 @@ describe('HomePage', () => {
         language: 'en',
         predefinedTags: [],
         noPredefinedTag: false,
+        noCustomTag: false,
         tags: [],
         partOfSpeech: null,
       });
@@ -258,6 +259,7 @@ describe('HomePage', () => {
         language: null,
         predefinedTags: [],
         noPredefinedTag: false,
+        noCustomTag: false,
         tags: [],
         partOfSpeech: 'noun',
       });

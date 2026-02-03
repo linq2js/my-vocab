@@ -57,6 +57,8 @@ export interface VocabFilterOptions {
   noPredefinedTag?: boolean;
   /** Filter by custom tag (items must contain this tag) */
   tag?: string;
+  /** Filter for items with no custom tags */
+  noCustomTag?: boolean;
   /** Search text (matches against text and description, case-insensitive) */
   searchText?: string;
 }
@@ -293,6 +295,14 @@ export function createVocabStore(options: VocabStoreOptions = {}): VocabStore {
 
     if (options.tag) {
       result = result.filter((v) => v.tags.includes(options.tag!));
+    }
+
+    // Filter for items with no custom tags
+    if (options.noCustomTag) {
+      result = result.filter((v) => {
+        const itemCustomTags = v.tags.filter((tag) => !isPredefinedTag(tag));
+        return itemCustomTags.length === 0;
+      });
     }
 
     if (options.searchText) {
