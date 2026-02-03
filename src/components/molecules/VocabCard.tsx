@@ -175,6 +175,7 @@ export const VocabCard = ({
     'border border-gray-200 dark:border-gray-700',
     'rounded-xl shadow-sm',
     'p-4',
+    'h-full',
     'transition-shadow duration-200',
     'hover:shadow-md',
     className,
@@ -423,7 +424,7 @@ export const VocabCard = ({
                         </button>
                       )}
                     </div>
-                    <p className="text-base text-gray-700 dark:text-gray-300">
+                    <p className="text-base text-gray-800 dark:text-gray-100">
                       <ClickableText language={language}>{value}</ClickableText>
                     </p>
                   </div>
@@ -449,7 +450,7 @@ export const VocabCard = ({
                   </button>
                 )}
               </div>
-              <p className="text-base text-gray-700 dark:text-gray-300">
+              <p className="text-base text-gray-800 dark:text-gray-100">
                 <ClickableText language={language}>{description}</ClickableText>
               </p>
             </div>
@@ -481,7 +482,7 @@ export const VocabCard = ({
                   </button>
                 )}
               </div>
-              <p className="text-base text-gray-700 dark:text-gray-300">
+              <p className="text-base text-gray-800 dark:text-gray-100">
                 <ClickableText language={language}>{definition}</ClickableText>
               </p>
             </div>
@@ -523,7 +524,7 @@ export const VocabCard = ({
                 {examples.map((example, index) => (
                   <li
                     key={index}
-                    className="flex items-start gap-2 text-base text-gray-600 dark:text-gray-400"
+                    className="flex items-start gap-2 text-base text-gray-700 dark:text-gray-200"
                   >
                     <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded-full shrink-0 mt-0.5">
                       {index + 1}
@@ -576,7 +577,7 @@ export const VocabCard = ({
                     
                     {/* Sense definition */}
                     <div className="flex items-start gap-1 mb-2">
-                      <p className="text-base text-gray-700 dark:text-gray-300 flex-1">
+                      <p className="text-base text-gray-800 dark:text-gray-100 flex-1">
                         <ClickableText language={language}>{sense.definition}</ClickableText>
                       </p>
                       {isSupported && (
@@ -626,7 +627,7 @@ export const VocabCard = ({
                         {sense.examples.map((ex, exIndex) => (
                           <li 
                             key={exIndex}
-                            className="flex items-start gap-2 text-base text-gray-600 dark:text-gray-400"
+                            className="flex items-start gap-2 text-base text-gray-700 dark:text-gray-200"
                           >
                             <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded-full shrink-0 mt-0.5">
                               {exIndex + 1}

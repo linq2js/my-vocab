@@ -164,8 +164,9 @@ export const VocabList = ({
 
   // List container classes
   // Mobile: 1 column, Large screens (sm+): 2 columns
+  // items-stretch ensures cards in the same row have equal height
   const listClasses = [
-    'grid gap-4',
+    'grid gap-4 items-stretch',
     'grid-cols-1',
     'sm:grid-cols-2',
     className,
@@ -181,7 +182,7 @@ export const VocabList = ({
       {...props}
     >
       {items.map((vocabulary) => (
-        <li key={vocabulary.id} className="list-none">
+        <li key={vocabulary.id} className="list-none h-full">
           <VocabCard
             vocabulary={vocabulary}
             compact={compact}
