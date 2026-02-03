@@ -102,6 +102,22 @@ describe('UI Store', () => {
         store.setFilters({ tags: ['important'] });
         expect(store.hasActiveFilters()).toBe(true);
       });
+
+      it('should detect active filters for partOfSpeech', () => {
+        store.setFilters({ partOfSpeech: 'noun' });
+        expect(store.hasActiveFilters()).toBe(true);
+      });
+
+      it('should update partOfSpeech filter', () => {
+        store.setFilters({ partOfSpeech: 'verb' });
+        expect(store.filters$.get().partOfSpeech).toBe('verb');
+      });
+
+      it('should reset partOfSpeech to null on resetFilters', () => {
+        store.setFilters({ partOfSpeech: 'adjective' });
+        store.resetFilters();
+        expect(store.filters$.get().partOfSpeech).toBeNull();
+      });
     });
 
     describe('modalState$', () => {

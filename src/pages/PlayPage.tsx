@@ -13,13 +13,14 @@
  */
 
 import React, { useState, useCallback, useMemo, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useSelector } from "atomirx/react";
 import { PageLayout } from "../components/templates/PageLayout";
 import { Button } from "../components/atoms/Button";
 import { Input } from "../components/atoms/Input";
 import { Icon } from "../components/atoms/Icon";
 import { vocabStore } from "../stores/vocab.store";
+import { uiStore } from "../stores/ui.store";
 import { useSpeech } from "../hooks/useSpeech";
 import type { Vocabulary } from "../types/vocabulary";
 
@@ -47,9 +48,49 @@ function shuffleArray<T>(array: T[]): T[] {
  */
 export const PlayPage = (): React.ReactElement => {
   const { speak, isSupported } = useSpeech();
+  const [searchParams] = useSearchParams();
+
+  // Check if we should use filtered entries
+  const useFiltered = searchParams.get("useFiltered") === "true";
 
   // Get all vocabularies from store
   const allVocabularies = useSelector(vocabStore.items$);
+
+  // Get filters from UI store (for filtered mode)
+  const filters = useSelector(uiStore.filters$);
+  const searchQuery = useSelector(uiStore.searchQuery$);
+
+  /**
+   * Get vocabularies to play with - either all or filtered based on URL param.
+   */
+  const vocabulariesToPlay = useMemo((): Vocabulary[] => {
+    if (!useFiltered) {
+      return allVocabularies;
+    }
+
+    // Apply the same filtering logic as HomePage
+    let result = vocabStore.filter({
+      language: filters.language ?? undefined,
+      searchText: searchQuery || undefined,
+      predefinedTags:
+        filters.predefinedTags.length > 0 ? filters.predefinedTags : undefined,
+      noPredefinedTag: filters.noPredefinedTag || undefined,
+    });
+
+    // Apply part of speech filter
+    if (filters.partOfSpeech) {
+      result = result.filter((v) => v.partOfSpeech === filters.partOfSpeech);
+    }
+
+    // Apply custom tag filter if any tags are selected
+    if (filters.tags.length > 0) {
+      result = result.filter((v) =>
+        filters.tags.every((tag) => v.tags.includes(tag))
+      );
+    }
+
+    return result;
+  }, [allVocabularies, useFiltered, filters, searchQuery]);
 
   // Shuffled list for the session
   const [shuffledItems, setShuffledItems] = useState<Vocabulary[]>([]);
@@ -85,9 +126,9 @@ export const PlayPage = (): React.ReactElement => {
    * Start the game with shuffled vocabularies
    */
   const handleStart = useCallback(() => {
-    if (allVocabularies.length === 0) return;
+    if (vocabulariesToPlay.length === 0) return;
 
-    const shuffled = shuffleArray(allVocabularies);
+    const shuffled = shuffleArray(vocabulariesToPlay);
     setShuffledItems(shuffled);
     setCurrentIndex(0);
     setCorrectCount(0);
@@ -99,7 +140,7 @@ export const PlayPage = (): React.ReactElement => {
     setDefinitionAnswer("");
     setExampleAnswer("");
     setHasPlayed(false);
-  }, [allVocabularies]);
+  }, [vocabulariesToPlay]);
 
   /**
    * Play the current word's pronunciation
@@ -197,23 +238,43 @@ export const PlayPage = (): React.ReactElement => {
 
             <div className="bg-gray-100 dark:bg-gray-800 rounded-xl p-6 mb-8">
               <div className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
-                {allVocabularies.length}
+                {vocabulariesToPlay.length}
               </div>
               <div className="text-sm text-gray-500 dark:text-gray-400">
-                words to practice
+                {useFiltered ? (
+                  <span>
+                    filtered words to practice
+                    <span className="block text-xs mt-1 text-purple-500 dark:text-purple-400">
+                      (out of {allVocabularies.length} total)
+                    </span>
+                  </span>
+                ) : (
+                  "words to practice"
+                )}
               </div>
             </div>
 
-            {allVocabularies.length > 0 ? (
+            {vocabulariesToPlay.length > 0 ? (
               <Button onClick={handleStart} size="lg" className="w-full">
                 Start Playing
               </Button>
             ) : (
               <div className="text-gray-500 dark:text-gray-400">
-                <p className="mb-4">No vocabulary items yet.</p>
-                <Link to="/add">
-                  <Button variant="outline">Add Your First Word</Button>
-                </Link>
+                {useFiltered ? (
+                  <>
+                    <p className="mb-4">No vocabulary items match your filters.</p>
+                    <Link to="/play">
+                      <Button variant="outline">Play All Words</Button>
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <p className="mb-4">No vocabulary items yet.</p>
+                    <Link to="/add">
+                      <Button variant="outline">Add Your First Word</Button>
+                    </Link>
+                  </>
+                )}
               </div>
             )}
           </div>

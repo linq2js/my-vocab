@@ -57,6 +57,8 @@ export interface UiFilters {
   noPredefinedTag: boolean;
   /** Filter by custom tags (items must contain all tags) */
   tags: string[];
+  /** Filter by part of speech (e.g., 'noun', 'verb') */
+  partOfSpeech: string | null;
 }
 
 /**
@@ -79,6 +81,7 @@ export const DEFAULT_FILTERS: UiFilters = {
   predefinedTags: [],
   noPredefinedTag: false,
   tags: [],
+  partOfSpeech: null,
 };
 
 /**
@@ -228,7 +231,8 @@ export function createUiStore(): UiStore {
       currentFilters.language !== null ||
       currentFilters.predefinedTags.length > 0 ||
       currentFilters.noPredefinedTag ||
-      currentFilters.tags.length > 0
+      currentFilters.tags.length > 0 ||
+      currentFilters.partOfSpeech !== null
     );
   };
 

@@ -4,6 +4,8 @@ import { MemoryRouter } from 'react-router-dom';
 import { HomePage } from './HomePage';
 import { vocabStore } from '../stores/vocab.store';
 import { uiStore } from '../stores/ui.store';
+import { settingsStore } from '../stores/settings.store';
+import { ReadAloudProvider } from '../contexts/ReadAloudContext';
 import type { Vocabulary } from '../types/vocabulary';
 
 // Mock the stores
@@ -23,7 +25,7 @@ vi.mock('../stores/ui.store', () => ({
       get: vi.fn(() => ''),
     },
     filters$: {
-      get: vi.fn(() => ({ language: null, predefinedTags: [], noPredefinedTag: false, tags: [] })),
+      get: vi.fn(() => ({ language: null, predefinedTags: [], noPredefinedTag: false, tags: [], partOfSpeech: null })),
     },
     modalState$: {
       get: vi.fn(() => ({ isOpen: false, type: null, data: null })),
@@ -40,6 +42,15 @@ vi.mock('../stores/ui.store', () => ({
   },
 }));
 
+vi.mock('../stores/settings.store', () => ({
+  settingsStore: {
+    settings$: {
+      get: vi.fn(() => ({ nativeLanguage: 'en' })),
+    },
+    init: vi.fn().mockResolvedValue(undefined),
+  },
+}));
+
 // Mock atomirx/react
 vi.mock('atomirx/react', () => ({
   useSelector: vi.fn((atom$) => {
@@ -51,6 +62,9 @@ vi.mock('atomirx/react', () => ({
     }
     if (atom$ === uiStore.filters$) {
       return uiStore.filters$.get();
+    }
+    if (atom$ === settingsStore.settings$) {
+      return settingsStore.settings$.get();
     }
     return null;
   }),
@@ -93,7 +107,9 @@ describe('HomePage', () => {
     await act(async () => {
       render(
         <MemoryRouter initialEntries={['/']}>
-          <HomePage />
+          <ReadAloudProvider>
+            <HomePage />
+          </ReadAloudProvider>
         </MemoryRouter>
       );
     });
@@ -165,7 +181,9 @@ describe('HomePage', () => {
       await act(async () => {
         render(
           <MemoryRouter initialEntries={['/']}>
-            <HomePage />
+            <ReadAloudProvider>
+              <HomePage />
+            </ReadAloudProvider>
           </MemoryRouter>
         );
       });
@@ -227,11 +245,29 @@ describe('HomePage', () => {
         predefinedTags: [],
         noPredefinedTag: false,
         tags: [],
+        partOfSpeech: null,
       });
       
       await renderAndWait();
       
       expect(vocabStore.filter).toHaveBeenCalled();
+    });
+
+    it('should filter vocabularies by partOfSpeech', async () => {
+      vi.mocked(uiStore.filters$.get).mockReturnValue({
+        language: null,
+        predefinedTags: [],
+        noPredefinedTag: false,
+        tags: [],
+        partOfSpeech: 'noun',
+      });
+      const firstVocab = mockVocabularies[0];
+      vi.mocked(vocabStore.filter).mockReturnValue(firstVocab ? [firstVocab] : []);
+      
+      await renderAndWait();
+      
+      // Should only show noun items
+      expect(screen.getByText('serendipity')).toBeInTheDocument();
     });
   });
 
@@ -242,6 +278,31 @@ describe('HomePage', () => {
       // The home link should have aria-current="page" - get all and check first one
       const homeLinks = screen.getAllByRole('link', { name: /home/i });
       expect(homeLinks[0]).toHaveAttribute('aria-current', 'page');
+    });
+  });
+
+  describe('Play Button', () => {
+    it('should render play button when there are vocabularies', async () => {
+      await renderAndWait();
+      
+      expect(screen.getByRole('button', { name: /play all entries/i })).toBeInTheDocument();
+    });
+
+    it('should show "Play filtered" when filters are active', async () => {
+      vi.mocked(uiStore.hasActiveFilters).mockReturnValue(true);
+      
+      await renderAndWait();
+      
+      expect(screen.getByRole('button', { name: /play with filtered entries/i })).toBeInTheDocument();
+    });
+
+    it('should not render play button when no vocabularies', async () => {
+      vi.mocked(vocabStore.items$.get).mockReturnValue([]);
+      vi.mocked(vocabStore.filter).mockReturnValue([]);
+      
+      await renderAndWait();
+      
+      expect(screen.queryByRole('button', { name: /play/i })).not.toBeInTheDocument();
     });
   });
 

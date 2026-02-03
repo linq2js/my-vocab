@@ -22,7 +22,7 @@
  * ```
  */
 
-import React, { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "atomirx/react";
 import { PageLayout } from "../components/templates/PageLayout";
@@ -56,9 +56,6 @@ export const HomePage = (): React.ReactElement => {
   const filters = useSelector(uiStore.filters$);
   const settings = useSelector(settingsStore.settings$);
   const nativeLanguage = settings.nativeLanguage || "en";
-
-  // Local state for part of speech filter (not in uiStore)
-  const [partOfSpeech, setPartOfSpeech] = useState<string | null>(null);
 
   // Toast state for read-aloud mode
   const [showReadAloudToast, setShowReadAloudToast] = useState(false);
@@ -105,9 +102,9 @@ export const HomePage = (): React.ReactElement => {
       noPredefinedTag: filters.noPredefinedTag || undefined,
     });
 
-    // Apply part of speech filter (not in vocabStore.filter)
-    if (partOfSpeech) {
-      result = result.filter((v) => v.partOfSpeech === partOfSpeech);
+    // Apply part of speech filter
+    if (filters.partOfSpeech) {
+      result = result.filter((v) => v.partOfSpeech === filters.partOfSpeech);
     }
 
     // Apply custom tag filter if any tags are selected
@@ -118,14 +115,14 @@ export const HomePage = (): React.ReactElement => {
     }
 
     return result;
-  }, [allVocabularies, searchQuery, filters, partOfSpeech]);
+  }, [allVocabularies, searchQuery, filters]);
 
   /**
-   * Check if any filters are active (including part of speech).
+   * Check if any filters are active (including part of speech and search query).
    */
   const hasActiveFilters = useMemo((): boolean => {
-    return uiStore.hasActiveFilters() || !!partOfSpeech || !!searchQuery;
-  }, [filters, partOfSpeech, searchQuery]);
+    return uiStore.hasActiveFilters() || !!searchQuery;
+  }, [filters, searchQuery]);
 
   /**
    * Handle FAB click - navigate to add page.
@@ -167,14 +164,14 @@ export const HomePage = (): React.ReactElement => {
    * Handle part of speech filter change.
    */
   const handlePartOfSpeechChange = useCallback((pos: string | null): void => {
-    setPartOfSpeech(pos);
+    uiStore.setFilters({ partOfSpeech: pos });
   }, []);
 
   /**
    * Handle filter reset (including part of speech).
    */
   const handleFilterReset = useCallback((): void => {
-    setPartOfSpeech(null);
+    uiStore.setFilters({ partOfSpeech: null });
   }, []);
 
   /**
@@ -216,19 +213,36 @@ export const HomePage = (): React.ReactElement => {
         {/* Other Filters Panel */}
         <FilterPanel
           compact
-          partOfSpeech={partOfSpeech}
+          partOfSpeech={filters.partOfSpeech}
           onPartOfSpeechChange={handlePartOfSpeechChange}
           onReset={handleFilterReset}
         />
 
-        {/* Entry Count */}
-        <div className="text-sm text-gray-500 dark:text-gray-400">
-          <span className="font-medium text-gray-700 dark:text-gray-300">
-            {filteredVocabularies.length}
-          </span>
-          {" / "}
-          {allVocabularies.length}{" "}
-          {allVocabularies.length === 1 ? "entry" : "entries"}
+        {/* Entry Count with Play Button */}
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            <span className="font-medium text-gray-700 dark:text-gray-300">
+              {filteredVocabularies.length}
+            </span>
+            {" / "}
+            {allVocabularies.length}{" "}
+            {allVocabularies.length === 1 ? "entry" : "entries"}
+          </div>
+          {filteredVocabularies.length > 0 && (
+            <button
+              type="button"
+              onClick={() =>
+                navigateWithExitReadAloud(
+                  hasActiveFilters ? "/play?useFiltered=true" : "/play"
+                )
+              }
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
+              aria-label={hasActiveFilters ? "Play with filtered entries" : "Play all entries"}
+            >
+              <Icon name="volume" size="sm" />
+              <span>{hasActiveFilters ? "Play filtered" : "Play"}</span>
+            </button>
+          )}
         </div>
 
         {/* Vocabulary List */}
