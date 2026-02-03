@@ -90,7 +90,8 @@ export const HomePage = (): React.ReactElement => {
   }, [isReadAloudMode, toggleReadAloudMode]);
 
   /**
-   * Filter vocabularies based on search query and filters.
+   * Filter and sort vocabularies based on search query and filters.
+   * Sorted alphabetically (A-Z) by text field.
    * Memoized to prevent unnecessary recalculations.
    */
   const filteredVocabularies = useMemo((): Vocabulary[] => {
@@ -114,7 +115,10 @@ export const HomePage = (): React.ReactElement => {
       );
     }
 
-    return result;
+    // Sort alphabetically (A-Z) by text, case-insensitive
+    return result.sort((a, b) =>
+      a.text.toLowerCase().localeCompare(b.text.toLowerCase())
+    );
   }, [allVocabularies, searchQuery, filters]);
 
   /**
