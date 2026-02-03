@@ -175,6 +175,14 @@ export const HomePage = (): React.ReactElement => {
   }, []);
 
   /**
+   * Handle reset all filters (search query, predefined tags, language, tags, part of speech).
+   */
+  const handleResetAllFilters = useCallback((): void => {
+    uiStore.clearSearchQuery();
+    uiStore.resetFilters();
+  }, []);
+
+  /**
    * Handle translate button click from FAB - opens empty modal.
    */
   const handleTranslateFABClick = useCallback((): void => {
@@ -214,11 +222,12 @@ export const HomePage = (): React.ReactElement => {
         <FilterPanel
           compact
           partOfSpeech={filters.partOfSpeech}
+          hideResetButton
           onPartOfSpeechChange={handlePartOfSpeechChange}
           onReset={handleFilterReset}
         />
 
-        {/* Entry Count with Play Button */}
+        {/* Entry Count with Reset and Play Buttons */}
         <div className="flex items-center justify-between">
           <div className="text-sm text-gray-500 dark:text-gray-400">
             <span className="font-medium text-gray-700 dark:text-gray-300">
@@ -228,20 +237,29 @@ export const HomePage = (): React.ReactElement => {
             {allVocabularies.length}{" "}
             {allVocabularies.length === 1 ? "entry" : "entries"}
           </div>
-          {filteredVocabularies.length > 0 && (
-            <button
-              type="button"
-              onClick={() =>
-                navigateWithExitReadAloud(
-                  hasActiveFilters ? "/play?useFiltered=true" : "/play"
-                )
-              }
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
-              aria-label={hasActiveFilters ? "Play with filtered entries" : "Play all entries"}
-            >
-              <Icon name="volume" size="sm" />
-              <span>{hasActiveFilters ? "Play filtered" : "Play"}</span>
-            </button>
+          {hasActiveFilters && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleResetAllFilters}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                aria-label="Reset all filters"
+              >
+                <Icon name="close" size="sm" />
+                <span>Reset</span>
+              </button>
+              {filteredVocabularies.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => navigateWithExitReadAloud("/play?useFiltered=true")}
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-sm font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
+                  aria-label="Play with filtered entries"
+                >
+                  <Icon name="volume" size="sm" />
+                  <span>Play</span>
+                </button>
+              )}
+            </div>
           )}
         </div>
 

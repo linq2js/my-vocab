@@ -67,6 +67,8 @@ export interface FilterPanelProps {
   compact?: boolean;
   /** Current part of speech filter value (controlled externally) */
   partOfSpeech?: string | null;
+  /** Whether to hide the reset button (useful when reset is handled elsewhere) */
+  hideResetButton?: boolean;
   /** Callback when language filter changes */
   onLanguageChange?: (language: string | null) => void;
   /** Callback when part of speech filter changes */
@@ -117,6 +119,7 @@ export const FilterPanel = ({
   disabled = false,
   compact = false,
   partOfSpeech: controlledPartOfSpeech,
+  hideResetButton = false,
   onLanguageChange,
   onPartOfSpeechChange,
   onReset,
@@ -315,7 +318,7 @@ export const FilterPanel = ({
       )}
 
       {/* Reset Button */}
-      {hasActiveFilters && (
+      {hasActiveFilters && !hideResetButton && (
         <div className={compact ? 'flex items-end' : 'w-full'}>
           {!compact && <div className="h-6" />} {/* Spacer for label alignment */}
           <Button

@@ -281,28 +281,46 @@ describe('HomePage', () => {
     });
   });
 
-  describe('Play Button', () => {
-    it('should render play button when there are vocabularies', async () => {
+  describe('Filter Actions (Reset and Play)', () => {
+    it('should not render reset or play buttons when no filters are active', async () => {
+      vi.mocked(uiStore.hasActiveFilters).mockReturnValue(false);
+      
       await renderAndWait();
       
-      expect(screen.getByRole('button', { name: /play all entries/i })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /reset/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /play/i })).not.toBeInTheDocument();
     });
 
-    it('should show "Play filtered" when filters are active', async () => {
+    it('should show Reset and Play buttons when filters are active', async () => {
       vi.mocked(uiStore.hasActiveFilters).mockReturnValue(true);
       
       await renderAndWait();
       
+      expect(screen.getByRole('button', { name: /reset all filters/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /play with filtered entries/i })).toBeInTheDocument();
     });
 
-    it('should not render play button when no vocabularies', async () => {
+    it('should show only Reset button when filters active but no results', async () => {
       vi.mocked(vocabStore.items$.get).mockReturnValue([]);
       vi.mocked(vocabStore.filter).mockReturnValue([]);
+      vi.mocked(uiStore.hasActiveFilters).mockReturnValue(true);
       
       await renderAndWait();
       
+      expect(screen.getByRole('button', { name: /reset all filters/i })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /play/i })).not.toBeInTheDocument();
+    });
+
+    it('should reset all filters when Reset button is clicked', async () => {
+      vi.mocked(uiStore.hasActiveFilters).mockReturnValue(true);
+      
+      await renderAndWait();
+      
+      const resetButton = screen.getByRole('button', { name: /reset all filters/i });
+      fireEvent.click(resetButton);
+      
+      expect(uiStore.clearSearchQuery).toHaveBeenCalled();
+      expect(uiStore.resetFilters).toHaveBeenCalled();
     });
   });
 
