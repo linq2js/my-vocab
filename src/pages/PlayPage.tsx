@@ -102,6 +102,7 @@ export const PlayPage = (): React.ReactElement => {
   // Stats
   const [correctCount, setCorrectCount] = useState(0);
   const [wrongCount, setWrongCount] = useState(0);
+  const [wrongItems, setWrongItems] = useState<Vocabulary[]>([]);
 
   // Current question state
   const [textAnswer, setTextAnswer] = useState("");
@@ -134,6 +135,7 @@ export const PlayPage = (): React.ReactElement => {
     setCurrentIndex(0);
     setCorrectCount(0);
     setWrongCount(0);
+    setWrongItems([]);
     setIsStarted(true);
     setIsFinished(false);
     setResult(null);
@@ -169,6 +171,7 @@ export const PlayPage = (): React.ReactElement => {
     } else {
       setResult("wrong");
       setWrongCount((prev) => prev + 1);
+      setWrongItems((prev) => [...prev, currentItem]);
     }
   }, [currentItem, textAnswer, result]);
 
@@ -180,6 +183,7 @@ export const PlayPage = (): React.ReactElement => {
 
     setResult("skipped");
     setWrongCount((prev) => prev + 1);
+    setWrongItems((prev) => [...prev, currentItem]);
   }, [currentItem, result]);
 
   /**
@@ -189,14 +193,22 @@ export const PlayPage = (): React.ReactElement => {
     if (currentIndex + 1 >= shuffledItems.length) {
       setIsFinished(true);
     } else {
-      setCurrentIndex((prev) => prev + 1);
+      const nextIndex = currentIndex + 1;
+      const nextItem = shuffledItems[nextIndex];
+      setCurrentIndex(nextIndex);
       setTextAnswer("");
       setDefinitionAnswer("");
       setExampleAnswer("");
       setResult(null);
       setHasPlayed(false);
+
+      // Auto-play audio for the next entry
+      if (nextItem && isSupported) {
+        speak(nextItem.text, nextItem.language);
+        setHasPlayed(true);
+      }
     }
-  }, [currentIndex, shuffledItems.length]);
+  }, [currentIndex, shuffledItems, isSupported, speak]);
 
   /**
    * Restart the game
@@ -204,6 +216,27 @@ export const PlayPage = (): React.ReactElement => {
   const handleRestart = useCallback(() => {
     handleStart();
   }, [handleStart]);
+
+  /**
+   * Play again with only wrong/skipped items
+   */
+  const handlePlayWrongOnly = useCallback(() => {
+    if (wrongItems.length === 0) return;
+
+    const shuffled = shuffleArray(wrongItems);
+    setShuffledItems(shuffled);
+    setCurrentIndex(0);
+    setCorrectCount(0);
+    setWrongCount(0);
+    setWrongItems([]);
+    setIsStarted(true);
+    setIsFinished(false);
+    setResult(null);
+    setTextAnswer("");
+    setDefinitionAnswer("");
+    setExampleAnswer("");
+    setHasPlayed(false);
+  }, [wrongItems]);
 
   // Calculate total items for navigation
   const totalItems = shuffledItems.length;
@@ -350,9 +383,21 @@ export const PlayPage = (): React.ReactElement => {
               </div>
             </div>
 
-            <Button onClick={handleRestart} size="lg" className="w-full">
-              Play Again
-            </Button>
+            <div className="space-y-3">
+              <Button onClick={handleRestart} size="lg" className="w-full">
+                Play Again
+              </Button>
+              {wrongItems.length > 0 && (
+                <Button
+                  onClick={handlePlayWrongOnly}
+                  variant="outline"
+                  size="lg"
+                  className="w-full"
+                >
+                  Play Wrong Only ({wrongItems.length})
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </PageLayout>
