@@ -52,6 +52,43 @@ export interface TranslateModalProps {
 type TabType = "translate" | "tools" | "styles";
 
 /**
+ * State for each Tools sub-tab
+ */
+interface ToolsSubTabState {
+  id: number;
+  text: string;
+  context: string;
+  lang: string;
+  detectedLangResult: string | null;
+  explanationResult: string | null;
+  explanationTranslation: string | null; // Translation of explanation to native language
+  showExplanationTranslation: boolean; // Toggle for showing translation
+  rephraseResult: TranslateResult | null;
+  error: string | null;
+  // Reply suggestion fields
+  replyIdea: string;
+  suggestedReply: string | null;
+}
+
+/**
+ * Create initial state for a new sub-tab
+ */
+const createSubTabState = (id: number): ToolsSubTabState => ({
+  id,
+  text: "",
+  context: "",
+  lang: "en",
+  detectedLangResult: null,
+  explanationResult: null,
+  explanationTranslation: null,
+  showExplanationTranslation: false,
+  rephraseResult: null,
+  error: null,
+  replyIdea: "",
+  suggestedReply: null,
+});
+
+/**
  * Common translation styles that can be added with one click.
  */
 const COMMON_STYLES = [
@@ -110,17 +147,12 @@ export const TranslateModal = ({
   const [rephraseResult, setRephraseResult] = useState<TranslateResult | null>(null);
   const [isRephrasing, setIsRephrasing] = useState(false);
 
-  // Tools tab state
-  const [toolsText, setToolsText] = useState("");
-  const [toolsContext, setToolsContext] = useState("");
-  const [toolsLang, setToolsLang] = useState("en");
+  // Tools tab state - sub-tabs
+  const [toolsSubTabs, setToolsSubTabs] = useState<ToolsSubTabState[]>([createSubTabState(1)]);
+  const [activeSubTabId, setActiveSubTabId] = useState(1);
+  const [nextSubTabId, setNextSubTabId] = useState(2);
   const [isDetectingLang, setIsDetectingLang] = useState(false);
-  const [detectedLangResult, setDetectedLangResult] = useState<string | null>(null);
-  const [toolsError, setToolsError] = useState<string | null>(null);
-
-  // Tools tab results (reusing explanation and rephrase results)
-  const [toolsExplanationResult, setToolsExplanationResult] = useState<string | null>(null);
-  const [toolsRephraseResult, setToolsRephraseResult] = useState<TranslateResult | null>(null);
+  const [isSuggestingReply, setIsSuggestingReply] = useState(false);
 
   // Style editing state
   const [isEditingStyle, setIsEditingStyle] = useState(false);
@@ -147,6 +179,7 @@ export const TranslateModal = ({
   const toolsExplanationResultRef = useRef<HTMLDivElement>(null);
   const toolsRephraseResultRef = useRef<HTMLDivElement>(null);
   const detectedLangResultRef = useRef<HTMLDivElement>(null);
+  const suggestedReplyResultRef = useRef<HTMLDivElement>(null);
 
   // Get settings from store
   const settings = useSelector(settingsStore.settings$);
@@ -172,14 +205,10 @@ export const TranslateModal = ({
       setActiveTab("translate");
       setIsEditingStyle(false);
 
-      // Reset tools tab state
-      setToolsText("");
-      setToolsContext("");
-      setToolsLang("en");
-      setDetectedLangResult(null);
-      setToolsError(null);
-      setToolsExplanationResult(null);
-      setToolsRephraseResult(null);
+      // Reset tools tab state - sub-tabs
+      setToolsSubTabs([createSubTabState(1)]);
+      setActiveSubTabId(1);
+      setNextSubTabId(2);
 
       // Auto-translate if requested and we have text
       if (autoTranslate && initialText && initialSourceLang) {
@@ -205,6 +234,59 @@ export const TranslateModal = ({
       textarea.style.height = `${Math.min(textarea.scrollHeight, 150)}px`;
     }
   }, [context]);
+
+  /**
+   * Get the active sub-tab state
+   */
+  const getActiveSubTab = useCallback((): ToolsSubTabState => {
+    const found = toolsSubTabs.find(tab => tab.id === activeSubTabId);
+    if (found) return found;
+    // Fallback to first tab if active tab not found
+    return toolsSubTabs[0] ?? createSubTabState(1);
+  }, [toolsSubTabs, activeSubTabId]);
+
+  /**
+   * Update the active sub-tab state
+   */
+  const updateActiveSubTab = useCallback((updates: Partial<ToolsSubTabState>) => {
+    setToolsSubTabs(prev => prev.map(tab =>
+      tab.id === activeSubTabId ? { ...tab, ...updates } : tab
+    ));
+  }, [activeSubTabId]);
+
+  /**
+   * Add a new sub-tab
+   */
+  const handleAddSubTab = useCallback(() => {
+    const newTab = createSubTabState(nextSubTabId);
+    setToolsSubTabs(prev => [...prev, newTab]);
+    setActiveSubTabId(nextSubTabId);
+    setNextSubTabId(prev => prev + 1);
+  }, [nextSubTabId]);
+
+  /**
+   * Close a sub-tab
+   */
+  const handleCloseSubTab = useCallback((tabId: number) => {
+    setToolsSubTabs(prev => {
+      // Don't close if it's the only tab
+      if (prev.length <= 1) return prev;
+      
+      const newTabs = prev.filter(tab => tab.id !== tabId);
+      
+      // If closing the active tab, switch to another
+      if (activeSubTabId === tabId && newTabs.length > 0) {
+        const closedIndex = prev.findIndex(tab => tab.id === tabId);
+        const newActiveIndex = Math.min(closedIndex, newTabs.length - 1);
+        const newActiveTab = newTabs[newActiveIndex];
+        if (newActiveTab) {
+          setActiveSubTabId(newActiveTab.id);
+        }
+      }
+      
+      return newTabs;
+    });
+  }, [activeSubTabId]);
 
   /**
    * Handle translation
@@ -319,49 +401,76 @@ export const TranslateModal = ({
    * Handle Tools tab - Explain
    */
   const handleToolsExplain = useCallback(async () => {
-    if (!toolsText.trim()) {
-      setToolsError("Please enter text to explain");
+    const activeTab = getActiveSubTab();
+    if (!activeTab.text.trim()) {
+      updateActiveSubTab({ error: "Please enter text to explain" });
       return;
     }
 
     setIsExplaining(true);
-    setToolsError(null);
-    setToolsExplanationResult(null);
-    setToolsRephraseResult(null);
-    setDetectedLangResult(null);
+    updateActiveSubTab({
+      error: null,
+      explanationResult: null,
+      explanationTranslation: null,
+      showExplanationTranslation: false,
+      rephraseResult: null,
+      detectedLangResult: null,
+    });
 
     try {
       const gpt = gptService();
-      const explanation = await gpt.explain(toolsText, toolsLang);
-      setToolsExplanationResult(explanation);
+      const explanation = await gpt.explain(activeTab.text, activeTab.lang);
+      
+      // Check if we need to translate explanation to native language
+      let explanationTranslation: string | null = null;
+      if (nativeLanguage && nativeLanguage !== activeTab.lang) {
+        try {
+          const translationResult = await gpt.translate(
+            explanation,
+            activeTab.lang,
+            nativeLanguage
+          );
+          explanationTranslation = translationResult.text;
+        } catch {
+          // Silently fail translation - still show original explanation
+        }
+      }
+      
+      updateActiveSubTab({ 
+        explanationResult: explanation,
+        explanationTranslation,
+      });
       gpt.close();
       
       setTimeout(() => {
         toolsExplanationResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }, 100);
     } catch (error) {
-      setToolsError(
-        error instanceof Error ? error.message : "Explanation failed"
-      );
+      updateActiveSubTab({
+        error: error instanceof Error ? error.message : "Explanation failed"
+      });
     } finally {
       setIsExplaining(false);
     }
-  }, [toolsText, toolsLang]);
+  }, [getActiveSubTab, updateActiveSubTab, nativeLanguage]);
 
   /**
    * Handle Tools tab - Rephrase
    */
   const handleToolsRephrase = useCallback(async () => {
-    if (!toolsText.trim()) {
-      setToolsError("Please enter text to rephrase");
+    const activeTab = getActiveSubTab();
+    if (!activeTab.text.trim()) {
+      updateActiveSubTab({ error: "Please enter text to rephrase" });
       return;
     }
 
     setIsRephrasing(true);
-    setToolsError(null);
-    setToolsRephraseResult(null);
-    setToolsExplanationResult(null);
-    setDetectedLangResult(null);
+    updateActiveSubTab({
+      error: null,
+      rephraseResult: null,
+      explanationResult: null,
+      detectedLangResult: null,
+    });
 
     try {
       const gpt = gptService();
@@ -370,73 +479,76 @@ export const TranslateModal = ({
         : null;
 
       let fullPrompt = style?.prompt || "";
-      if (toolsContext.trim()) {
-        const contextInstruction = `Context: ${toolsContext.trim()}`;
+      if (activeTab.context.trim()) {
+        const contextInstruction = `Context: ${activeTab.context.trim()}`;
         fullPrompt = fullPrompt
           ? `${fullPrompt}. ${contextInstruction}`
           : contextInstruction;
       }
 
       const result = await gpt.rephrase(
-        toolsText,
-        toolsLang,
+        activeTab.text,
+        activeTab.lang,
         selectedStyleId || undefined,
         fullPrompt || undefined,
-        toolsContext || undefined
+        activeTab.context || undefined
       );
 
-      setToolsRephraseResult(result);
+      updateActiveSubTab({ rephraseResult: result });
       gpt.close();
       
       setTimeout(() => {
         toolsRephraseResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }, 100);
     } catch (error) {
-      setToolsError(
-        error instanceof Error ? error.message : "Rephrase failed"
-      );
+      updateActiveSubTab({
+        error: error instanceof Error ? error.message : "Rephrase failed"
+      });
     } finally {
       setIsRephrasing(false);
     }
-  }, [toolsText, toolsLang, selectedStyleId, translationStyles, toolsContext]);
+  }, [getActiveSubTab, updateActiveSubTab, selectedStyleId, translationStyles]);
 
   /**
    * Handle Tools tab - Read Aloud
    */
-  const handleToolsSpeak = () => {
-    if (!toolsText.trim() || !isSpeechSupported) return;
-    speak(toolsText, toolsLang);
-  };
+  const handleToolsSpeak = useCallback(() => {
+    const activeTab = getActiveSubTab();
+    if (!activeTab.text.trim() || !isSpeechSupported) return;
+    speak(activeTab.text, activeTab.lang);
+  }, [getActiveSubTab, isSpeechSupported, speak]);
 
   /**
    * Handle Tools tab - Detect Language
    */
   const handleDetectLanguage = useCallback(async () => {
-    if (!toolsText.trim()) {
-      setToolsError("Please enter text to detect language");
+    const activeTab = getActiveSubTab();
+    if (!activeTab.text.trim()) {
+      updateActiveSubTab({ error: "Please enter text to detect language" });
       return;
     }
 
     setIsDetectingLang(true);
-    setToolsError(null);
-    setDetectedLangResult(null);
-    setToolsExplanationResult(null);
-    setToolsRephraseResult(null);
+    updateActiveSubTab({
+      error: null,
+      detectedLangResult: null,
+      explanationResult: null,
+      rephraseResult: null,
+    });
 
     try {
       const gpt = gptService();
-      const detectedCode = await gpt.detectLanguage(toolsText);
+      const detectedCode = await gpt.detectLanguage(activeTab.text);
       
       // Find the language name from the code
       const detectedLang = LANGUAGES.find(l => l.code === detectedCode);
       const langName = detectedLang?.name || detectedCode;
       
-      setDetectedLangResult(langName);
-      
-      // Also update the toolsLang to the detected language if found
-      if (detectedLang) {
-        setToolsLang(detectedCode);
-      }
+      // Also update the lang to the detected language if found
+      updateActiveSubTab({
+        detectedLangResult: langName,
+        ...(detectedLang ? { lang: detectedCode } : {}),
+      });
       
       gpt.close();
       
@@ -444,13 +556,57 @@ export const TranslateModal = ({
         detectedLangResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }, 100);
     } catch (error) {
-      setToolsError(
-        error instanceof Error ? error.message : "Language detection failed"
-      );
+      updateActiveSubTab({
+        error: error instanceof Error ? error.message : "Language detection failed"
+      });
     } finally {
       setIsDetectingLang(false);
     }
-  }, [toolsText]);
+  }, [getActiveSubTab, updateActiveSubTab]);
+
+  /**
+   * Handle Tools tab - Suggest Reply
+   */
+  const handleSuggestReply = useCallback(async () => {
+    const activeTab = getActiveSubTab();
+    if (!activeTab.text.trim()) {
+      updateActiveSubTab({ error: "Please enter text to suggest a reply for" });
+      return;
+    }
+
+    setIsSuggestingReply(true);
+    updateActiveSubTab({
+      error: null,
+      suggestedReply: null,
+    });
+
+    try {
+      const gpt = gptService();
+      const style = selectedStyleId
+        ? translationStyles.find((s) => s.id === selectedStyleId)
+        : null;
+
+      const suggestedReply = await gpt.suggestReply(
+        activeTab.text,
+        activeTab.lang,
+        activeTab.replyIdea || undefined,
+        style?.prompt
+      );
+
+      updateActiveSubTab({ suggestedReply });
+      gpt.close();
+
+      setTimeout(() => {
+        suggestedReplyResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 100);
+    } catch (error) {
+      updateActiveSubTab({
+        error: error instanceof Error ? error.message : "Reply suggestion failed"
+      });
+    } finally {
+      setIsSuggestingReply(false);
+    }
+  }, [getActiveSubTab, updateActiveSubTab, selectedStyleId, translationStyles]);
 
   /**
    * Handle clear cache
@@ -1044,8 +1200,52 @@ export const TranslateModal = ({
       {/* Tools Tab */}
       {activeTab === "tools" && (
         <div className="flex flex-col flex-1 min-h-0">
+          {/* Sub-tabs Bar */}
+          <div className="shrink-0 px-4 pt-4 pb-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {toolsSubTabs.map((subTab, index) => (
+                <div
+                  key={subTab.id}
+                  className={`inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-full transition-colors cursor-pointer ${
+                    activeSubTabId === subTab.id
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+                  }`}
+                  onClick={() => setActiveSubTabId(subTab.id)}
+                >
+                  <span>{index + 1}</span>
+                  {toolsSubTabs.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCloseSubTab(subTab.id);
+                      }}
+                      className={`ml-2 p-0.5 rounded-full transition-colors ${
+                        activeSubTabId === subTab.id
+                          ? "hover:bg-blue-500"
+                          : "hover:bg-gray-400 dark:hover:bg-gray-500"
+                      }`}
+                      aria-label={`Close tab ${index + 1}`}
+                    >
+                      <Icon name="close" size="sm" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={handleAddSubTab}
+                className="inline-flex items-center justify-center w-8 h-8 text-sm rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                aria-label="Add new tab"
+              >
+                <Icon name="plus" size="sm" />
+              </button>
+            </div>
+          </div>
+
           {/* Scrollable Content Area */}
-          <div className="flex-1 min-h-0 overflow-y-auto space-y-4 p-4">
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-4 px-4 pb-4">
             {/* Language Selection with Detect button */}
             <div>
               <label
@@ -1057,10 +1257,9 @@ export const TranslateModal = ({
               <div className="flex gap-2">
                 <select
                   id={`${selectId}-tools-lang`}
-                  value={toolsLang}
+                  value={getActiveSubTab().lang}
                   onChange={(e) => {
-                    setToolsLang(e.target.value);
-                    setDetectedLangResult(null);
+                    updateActiveSubTab({ lang: e.target.value, detectedLangResult: null });
                   }}
                   className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
                 >
@@ -1073,7 +1272,7 @@ export const TranslateModal = ({
                 <button
                   type="button"
                   onClick={handleDetectLanguage}
-                  disabled={!toolsText.trim() || isDetectingLang}
+                  disabled={!getActiveSubTab().text.trim() || isDetectingLang}
                   className="px-3 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-600 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
                 >
                   {isDetectingLang ? "..." : "Detect"}
@@ -1093,9 +1292,9 @@ export const TranslateModal = ({
                 <textarea
                   ref={toolsTextareaRef}
                   id={`${selectId}-tools-text`}
-                  value={toolsText}
+                  value={getActiveSubTab().text}
                   onChange={(e) => {
-                    setToolsText(e.target.value);
+                    updateActiveSubTab({ text: e.target.value });
                     const textarea = e.target;
                     textarea.style.height = 'auto';
                     textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
@@ -1105,11 +1304,11 @@ export const TranslateModal = ({
                   className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none overflow-hidden"
                   style={{ minHeight: '60px', maxHeight: '200px' }}
                 />
-                {toolsText ? (
+                {getActiveSubTab().text ? (
                   <button
                     type="button"
                     onClick={() => {
-                      setToolsText("");
+                      updateActiveSubTab({ text: "" });
                       if (toolsTextareaRef.current) {
                         toolsTextareaRef.current.style.height = 'auto';
                       }
@@ -1126,7 +1325,7 @@ export const TranslateModal = ({
                       try {
                         const text = await navigator.clipboard.readText();
                         if (text) {
-                          setToolsText(text);
+                          updateActiveSubTab({ text });
                           if (toolsTextareaRef.current) {
                             toolsTextareaRef.current.style.height = 'auto';
                             toolsTextareaRef.current.style.height = `${Math.min(toolsTextareaRef.current.scrollHeight, 200)}px`;
@@ -1144,7 +1343,7 @@ export const TranslateModal = ({
                 )}
               </div>
               {/* Read aloud button */}
-              {isSpeechSupported && toolsText.trim() && (
+              {isSpeechSupported && getActiveSubTab().text.trim() && (
                 <button
                   type="button"
                   onClick={handleToolsSpeak}
@@ -1222,9 +1421,9 @@ export const TranslateModal = ({
                 <textarea
                   ref={toolsContextTextareaRef}
                   id={`${selectId}-tools-context`}
-                  value={toolsContext}
+                  value={getActiveSubTab().context}
                   onChange={(e) => {
-                    setToolsContext(e.target.value);
+                    updateActiveSubTab({ context: e.target.value });
                     const textarea = e.target;
                     textarea.style.height = 'auto';
                     textarea.style.height = `${Math.min(textarea.scrollHeight, 150)}px`;
@@ -1234,11 +1433,11 @@ export const TranslateModal = ({
                   className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none overflow-hidden text-sm leading-5"
                   style={{ minHeight: '38px', maxHeight: '150px' }}
                 />
-                {toolsContext ? (
+                {getActiveSubTab().context ? (
                   <button
                     type="button"
                     onClick={() => {
-                      setToolsContext("");
+                      updateActiveSubTab({ context: "" });
                       if (toolsContextTextareaRef.current) {
                         toolsContextTextareaRef.current.style.height = 'auto';
                       }
@@ -1255,7 +1454,7 @@ export const TranslateModal = ({
                       try {
                         const text = await navigator.clipboard.readText();
                         if (text) {
-                          setToolsContext(text);
+                          updateActiveSubTab({ context: text });
                           if (toolsContextTextareaRef.current) {
                             toolsContextTextareaRef.current.style.height = 'auto';
                             toolsContextTextareaRef.current.style.height = `${Math.min(toolsContextTextareaRef.current.scrollHeight, 150)}px`;
@@ -1275,16 +1474,16 @@ export const TranslateModal = ({
             </div>
 
             {/* Error Message */}
-            {toolsError && (
+            {getActiveSubTab().error && (
               <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                 <p className="text-sm text-red-600 dark:text-red-400">
-                  {toolsError}
+                  {getActiveSubTab().error}
                 </p>
               </div>
             )}
 
             {/* Detected Language Result */}
-            {detectedLangResult && (
+            {getActiveSubTab().detectedLangResult && (
               <div ref={detectedLangResultRef} className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
@@ -1292,67 +1491,186 @@ export const TranslateModal = ({
                   </span>
                 </div>
                 <p className="text-gray-900 dark:text-gray-100">
-                  {detectedLangResult}
+                  {getActiveSubTab().detectedLangResult}
                 </p>
               </div>
             )}
 
             {/* Explanation Result */}
-            {toolsExplanationResult && (
-              <div ref={toolsExplanationResultRef} className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
-                    Explanation
-                  </span>
-                  <div className="flex items-center gap-2">
-                    {isSpeechSupported && (
+            {getActiveSubTab().explanationResult && (
+              <div ref={toolsExplanationResultRef} className="space-y-3">
+                <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                        Explanation
+                      </span>
+                      {/* Language Toggle - show when translation is available */}
+                      {getActiveSubTab().explanationTranslation && (
+                        <div className="flex items-center bg-purple-100 dark:bg-purple-800/30 rounded-full p-0.5">
+                          <button
+                            type="button"
+                            onClick={() => updateActiveSubTab({ showExplanationTranslation: false })}
+                            className={`px-2 py-0.5 text-xs font-medium rounded-full transition-colors ${
+                              !getActiveSubTab().showExplanationTranslation
+                                ? "bg-white dark:bg-gray-700 text-purple-700 dark:text-purple-300 shadow-sm"
+                                : "text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300"
+                            }`}
+                          >
+                            {LANGUAGES.find(l => l.code === getActiveSubTab().lang)?.name?.slice(0, 3).toUpperCase() || getActiveSubTab().lang.toUpperCase()}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateActiveSubTab({ showExplanationTranslation: true })}
+                            className={`px-2 py-0.5 text-xs font-medium rounded-full transition-colors ${
+                              getActiveSubTab().showExplanationTranslation
+                                ? "bg-white dark:bg-gray-700 text-purple-700 dark:text-purple-300 shadow-sm"
+                                : "text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300"
+                            }`}
+                          >
+                            {LANGUAGES.find(l => l.code === nativeLanguage)?.name?.slice(0, 3).toUpperCase() || nativeLanguage.toUpperCase()}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {isSpeechSupported && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const activeTab = getActiveSubTab();
+                            const textToSpeak = activeTab.showExplanationTranslation && activeTab.explanationTranslation
+                              ? activeTab.explanationTranslation
+                              : activeTab.explanationResult!;
+                            const langToSpeak = activeTab.showExplanationTranslation ? nativeLanguage : activeTab.lang;
+                            speak(textToSpeak, langToSpeak);
+                          }}
+                          className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+                          aria-label="Read aloud"
+                        >
+                          <Icon name="volume" size="sm" />
+                        </button>
+                      )}
                       <button
                         type="button"
-                        onClick={() => speak(toolsExplanationResult, toolsLang)}
+                        onClick={async () => {
+                          const activeTab = getActiveSubTab();
+                          const textToCopy = activeTab.showExplanationTranslation && activeTab.explanationTranslation
+                            ? activeTab.explanationTranslation
+                            : activeTab.explanationResult;
+                          if (!textToCopy) return;
+                          try {
+                            await navigator.clipboard.writeText(textToCopy);
+                            setCopySuccess(true);
+                            setTimeout(() => setCopySuccess(false), 2000);
+                          } catch {
+                            // Fallback
+                          }
+                        }}
                         className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
-                        aria-label="Read aloud"
+                        aria-label="Copy explanation"
                       >
-                        <Icon name="volume" size="sm" />
+                        {copySuccess ? (
+                          <Icon name="check" size="sm" color="success" />
+                        ) : (
+                          <Icon name="copy" size="sm" />
+                        )}
                       </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        if (!toolsExplanationResult) return;
-                        try {
-                          await navigator.clipboard.writeText(toolsExplanationResult);
-                          setCopySuccess(true);
-                          setTimeout(() => setCopySuccess(false), 2000);
-                        } catch {
-                          // Fallback
-                        }
-                      }}
-                      className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
-                      aria-label="Copy explanation"
-                    >
-                      {copySuccess ? (
-                        <Icon name="check" size="sm" color="success" />
-                      ) : (
-                        <Icon name="copy" size="sm" />
-                      )}
-                    </button>
+                    </div>
                   </div>
+                  <p className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap">
+                    {getActiveSubTab().showExplanationTranslation && getActiveSubTab().explanationTranslation
+                      ? getActiveSubTab().explanationTranslation
+                      : getActiveSubTab().explanationResult}
+                  </p>
                 </div>
-                <p className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap">
-                  {toolsExplanationResult}
-                </p>
+
+                {/* Reply Input Section */}
+                <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Reply
+                    <span className="ml-1 text-xs font-normal text-gray-400 dark:text-gray-500">
+                      (your idea for reply)
+                    </span>
+                  </label>
+                  <textarea
+                    value={getActiveSubTab().replyIdea}
+                    onChange={(e) => updateActiveSubTab({ replyIdea: e.target.value })}
+                    placeholder="e.g., agree enthusiastically, politely decline, ask for more details..."
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-sm"
+                  />
+                  <Button
+                    onClick={handleSuggestReply}
+                    disabled={isSuggestingReply || isExplaining || isRephrasing}
+                    loading={isSuggestingReply}
+                    variant="secondary"
+                    fullWidth
+                    className="text-sm"
+                  >
+                    {isSuggestingReply ? "..." : "Suggest Reply"}
+                  </Button>
+                </div>
+
+                {/* Suggested Reply Result */}
+                {getActiveSubTab().suggestedReply && (
+                  <div ref={suggestedReplyResultRef} className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                        Suggested Reply
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {isSpeechSupported && (
+                          <button
+                            type="button"
+                            onClick={() => speak(getActiveSubTab().suggestedReply!, getActiveSubTab().lang)}
+                            className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+                            aria-label="Read aloud"
+                          >
+                            <Icon name="volume" size="sm" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const reply = getActiveSubTab().suggestedReply;
+                            if (!reply) return;
+                            try {
+                              await navigator.clipboard.writeText(reply);
+                              setCopySuccess(true);
+                              setTimeout(() => setCopySuccess(false), 2000);
+                            } catch {
+                              // Fallback
+                            }
+                          }}
+                          className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+                          aria-label="Copy suggested reply"
+                        >
+                          {copySuccess ? (
+                            <Icon name="check" size="sm" color="success" />
+                          ) : (
+                            <Icon name="copy" size="sm" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap">
+                      {getActiveSubTab().suggestedReply}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Rephrase Result */}
-            {toolsRephraseResult && (
+            {getActiveSubTab().rephraseResult && (
               <div ref={toolsRephraseResultRef} className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
                     Rephrased
                   </span>
                   <div className="flex items-center gap-2">
-                    {toolsRephraseResult.fromCache && (
+                    {getActiveSubTab().rephraseResult!.fromCache && (
                       <span className="px-2 py-1 text-xs rounded bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
                         cached
                       </span>
@@ -1360,7 +1678,7 @@ export const TranslateModal = ({
                     {isSpeechSupported && (
                       <button
                         type="button"
-                        onClick={() => speak(toolsRephraseResult.text, toolsLang)}
+                        onClick={() => speak(getActiveSubTab().rephraseResult!.text, getActiveSubTab().lang)}
                         className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
                         aria-label="Read aloud"
                       >
@@ -1370,9 +1688,10 @@ export const TranslateModal = ({
                     <button
                       type="button"
                       onClick={async () => {
-                        if (!toolsRephraseResult?.text) return;
+                        const rephraseText = getActiveSubTab().rephraseResult?.text;
+                        if (!rephraseText) return;
                         try {
-                          await navigator.clipboard.writeText(toolsRephraseResult.text);
+                          await navigator.clipboard.writeText(rephraseText);
                           setCopySuccess(true);
                           setTimeout(() => setCopySuccess(false), 2000);
                         } catch {
@@ -1391,7 +1710,7 @@ export const TranslateModal = ({
                   </div>
                 </div>
                 <p className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap">
-                  {toolsRephraseResult.text}
+                  {getActiveSubTab().rephraseResult!.text}
                 </p>
               </div>
             )}
@@ -1402,7 +1721,7 @@ export const TranslateModal = ({
             <div className="flex gap-2">
               <Button
                 onClick={handleToolsRephrase}
-                disabled={!toolsText.trim() || isExplaining || isRephrasing || isDetectingLang}
+                disabled={!getActiveSubTab().text.trim() || isExplaining || isRephrasing || isDetectingLang || isSuggestingReply}
                 loading={isRephrasing}
                 fullWidth
                 className="text-sm"
@@ -1411,7 +1730,7 @@ export const TranslateModal = ({
               </Button>
               <Button
                 onClick={handleToolsExplain}
-                disabled={!toolsText.trim() || isExplaining || isRephrasing || isDetectingLang}
+                disabled={!getActiveSubTab().text.trim() || isExplaining || isRephrasing || isDetectingLang || isSuggestingReply}
                 loading={isExplaining}
                 fullWidth
                 className="text-sm"

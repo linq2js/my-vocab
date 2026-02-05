@@ -191,6 +191,23 @@ export interface GptService {
   detectLanguage: (text: string) => Promise<string>;
 
   /**
+   * Suggests a reply to a message based on the original text and user's idea.
+   *
+   * @param originalText - The original message/text to reply to
+   * @param language - The language for the reply
+   * @param userIdea - Optional user's idea or direction for the reply
+   * @param stylePrompt - Optional style instruction for the reply tone
+   * @returns Promise resolving to the suggested reply
+   * @throws Error if no provider is configured or API key is missing
+   */
+  suggestReply: (
+    originalText: string,
+    language: string,
+    userIdea?: string,
+    stylePrompt?: string
+  ) => Promise<string>;
+
+  /**
    * Closes the underlying services.
    * Important for cleanup in tests.
    */
@@ -774,6 +791,65 @@ export function gptService(options: GptServiceOptions = {}): GptService {
   };
 
   /**
+   * Suggests a reply with retry logic.
+   */
+  const suggestReplyWithRetry = async (
+    originalText: string,
+    language: string,
+    provider: IGptProvider,
+    userIdea?: string,
+    stylePrompt?: string
+  ): Promise<string> => {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await provider.suggestReply(originalText, language, userIdea, stylePrompt);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        if (attempt < maxRetries - 1) {
+          const delayMs = calculateBackoffDelay(attempt, RETRY_DELAY_BASE_MS);
+          await delay(delayMs);
+        }
+      }
+    }
+
+    throw new Error(
+      `Failed to suggest reply after ${maxRetries} attempts: ${lastError?.message}`
+    );
+  };
+
+  /**
+   * Suggests a reply to a message based on the original text and user's idea.
+   */
+  const suggestReply = async (
+    originalText: string,
+    language: string,
+    userIdea?: string,
+    stylePrompt?: string
+  ): Promise<string> => {
+    const trimmedText = originalText.trim();
+    if (!trimmedText) {
+      throw new Error("Original text is required for reply suggestion");
+    }
+
+    const trimmedLanguage = language.trim();
+    if (!trimmedLanguage) {
+      throw new Error("Language is required for reply suggestion");
+    }
+
+    const provider = await getActiveProvider();
+    return suggestReplyWithRetry(
+      trimmedText,
+      trimmedLanguage,
+      provider,
+      userIdea?.trim(),
+      stylePrompt?.trim()
+    );
+  };
+
+  /**
    * Closes the underlying services.
    */
   const close = (): void => {
@@ -790,6 +866,7 @@ export function gptService(options: GptServiceOptions = {}): GptService {
     explain,
     rephrase,
     detectLanguage,
+    suggestReply,
     close,
   };
 }

@@ -156,4 +156,26 @@ export interface IGptProvider {
    * ```
    */
   detectLanguage(text: string): Promise<string>;
+
+  /**
+   * Suggests a reply to a message based on the original text and user's idea.
+   *
+   * @param originalText - The original message/text to reply to
+   * @param language - The language for the reply
+   * @param userIdea - Optional user's idea or direction for the reply
+   * @param stylePrompt - Optional style instruction for the reply tone
+   * @returns Promise resolving to the suggested reply
+   * @throws Error if the API call fails
+   *
+   * @example
+   * ```typescript
+   * const reply = await provider.suggestReply(
+   *   'Would you like to join us for dinner tonight?',
+   *   'en',
+   *   'politely decline, busy with work'
+   * );
+   * console.log(reply); // 'Thank you for the invitation, but I have to work late tonight...'
+   * ```
+   */
+  suggestReply(originalText: string, language: string, userIdea?: string, stylePrompt?: string): Promise<string>;
 }

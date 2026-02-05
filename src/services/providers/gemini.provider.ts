@@ -585,4 +585,90 @@ ${text}`;
     // Clean up the response - should be just a language code
     return content.trim().toLowerCase().replace(/['"]/g, '');
   }
+
+  /**
+   * Suggests a reply to a message based on the original text and user's idea.
+   *
+   * @param originalText - The original message/text to reply to
+   * @param language - The language for the reply
+   * @param userIdea - Optional user's idea or direction for the reply
+   * @param stylePrompt - Optional style instruction for the reply tone
+   * @returns Promise resolving to the suggested reply
+   * @throws Error if the API call fails
+   */
+  async suggestReply(
+    originalText: string,
+    language: string,
+    userIdea?: string,
+    stylePrompt?: string
+  ): Promise<string> {
+    const url = `${GEMINI_API_BASE}/${this.model}:generateContent?key=${this.apiKey}`;
+
+    let prompt = `You are a helpful assistant that suggests replies to messages. Generate a natural, appropriate reply to the following message in ${language}.
+
+Original message:
+"${originalText}"
+`;
+
+    if (userIdea) {
+      prompt += `
+The user wants the reply to convey this idea or direction:
+"${userIdea}"
+`;
+    }
+
+    if (stylePrompt) {
+      prompt += `
+Style guidance: ${stylePrompt}
+`;
+    }
+
+    prompt += `
+Generate a thoughtful, contextually appropriate reply. Only output the reply text, nothing else.`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: prompt }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.7,
+          topP: 0.9,
+          topK: 40,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage =
+        (errorData as { error?: { message?: string } })?.error?.message ||
+        `${response.status} ${response.statusText}`;
+      throw new Error(`Gemini API error: ${errorMessage}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.candidates || data.candidates.length === 0) {
+      throw new Error('Gemini API returned no response');
+    }
+
+    const parts = data.candidates[0]?.content?.parts;
+    if (!parts || parts.length === 0) {
+      throw new Error('Gemini API returned empty content');
+    }
+
+    const content = parts[0]?.text;
+    if (!content) {
+      throw new Error('Gemini API returned empty content');
+    }
+
+    return content.trim();
+  }
 }

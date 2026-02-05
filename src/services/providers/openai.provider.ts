@@ -521,4 +521,72 @@ Return ONLY the 2-letter language code, nothing else.`;
     // Clean up the response - should be just a language code
     return content.trim().toLowerCase().replace(/['"]/g, '');
   }
+
+  /**
+   * Suggests a reply to a message based on the original text and user's idea.
+   *
+   * @param originalText - The original message/text to reply to
+   * @param language - The language for the reply
+   * @param userIdea - Optional user's idea or direction for the reply
+   * @param stylePrompt - Optional style instruction for the reply tone
+   * @returns Promise resolving to the suggested reply
+   * @throws Error if the API call fails
+   */
+  async suggestReply(
+    originalText: string,
+    language: string,
+    userIdea?: string,
+    stylePrompt?: string
+  ): Promise<string> {
+    let systemContent = `You are a helpful assistant that suggests replies to messages. Generate natural, appropriate replies in ${language}.`;
+
+    if (stylePrompt) {
+      systemContent += ` Style guidance: ${stylePrompt}`;
+    }
+
+    let userContent = `Generate a reply to this message:\n"${originalText}"`;
+
+    if (userIdea) {
+      userContent += `\n\nThe reply should convey this idea or direction: "${userIdea}"`;
+    }
+
+    userContent += '\n\nOnly output the reply text, nothing else.';
+
+    const response = await fetch(OPENAI_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: this.model,
+        messages: [
+          { role: 'system', content: systemContent },
+          { role: 'user', content: userContent },
+        ],
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage =
+        (errorData as { error?: { message?: string } })?.error?.message ||
+        `${response.status} ${response.statusText}`;
+      throw new Error(`OpenAI API error: ${errorMessage}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.choices || data.choices.length === 0) {
+      throw new Error('OpenAI API returned no response');
+    }
+
+    const content = data.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('OpenAI API returned empty content');
+    }
+
+    return content.trim();
+  }
 }
