@@ -22,6 +22,8 @@ export interface ModalLayoutProps {
   headerContent?: ReactNode;
   /** Size of the modal (default: 'md') */
   size?: ModalSize;
+  /** When true, use higher z-index (z-[60]) so this modal stacks above other modals (e.g. when opened from within another modal) */
+  highZIndex?: boolean;
 }
 
 /**
@@ -75,6 +77,7 @@ export const ModalLayout = ({
   title,
   headerContent,
   size = 'md',
+  highZIndex = false,
 }: ModalLayoutProps): React.ReactElement | null => {
   const titleId = useId();
 
@@ -122,7 +125,7 @@ export const ModalLayout = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className={`fixed inset-0 flex items-center justify-center p-4 ${highZIndex ? 'z-[60]' : 'z-50'}`}
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? titleId : undefined}

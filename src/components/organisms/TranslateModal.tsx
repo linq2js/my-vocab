@@ -826,7 +826,7 @@ export const TranslateModal = ({
   );
 
   return (
-    <ModalLayout isOpen={isOpen} onClose={onClose} headerContent={headerTabs} size="full">
+    <ModalLayout isOpen={isOpen} onClose={onClose} headerContent={headerTabs} size="full" highZIndex>
 
       {/* Translate Tab */}
       {activeTab === "translate" && (
