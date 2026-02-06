@@ -178,4 +178,61 @@ export interface IGptProvider {
    * ```
    */
   suggestReply(originalText: string, language: string, userIdea?: string, stylePrompt?: string): Promise<string>;
+
+  /**
+   * Corrects and improves user-spoken (or typed) text into natural target language.
+   * Fixes grammar, spelling, and optionally applies style. Output is in the target language.
+   *
+   * @param text - The raw text (e.g. from speech recognition) to correct
+   * @param sourceLang - Language of the input text
+   * @param targetLang - Language for the corrected output
+   * @param stylePrompt - Optional style instruction (e.g. formal, casual)
+   * @returns Promise resolving to the corrected text in target language
+   */
+  correctText(
+    text: string,
+    sourceLang: string,
+    targetLang: string,
+    stylePrompt?: string
+  ): Promise<string>;
+
+  /**
+   * Suggests 2–4 short "next things to say" based on conversation history.
+   * Used for voice practice to keep the conversation going.
+   *
+   * @param conversationHistory - Array of what the user said in this session (chronological)
+   * @param language - Language for the suggestions
+   * @returns Promise resolving to a single string with 2–4 bullet or numbered suggestions
+   */
+  suggestNextIdeas(conversationHistory: string[], language: string): Promise<string>;
+
+  /**
+   * Generates a short conversational reply as if the bot is responding to the user.
+   * Used for "Replies" / bot message list in conversation mode.
+   *
+   * @param userMessage - What the user said (e.g. corrected or raw)
+   * @param language - Language for the reply
+   * @param stylePrompt - Optional style/tone for the reply
+   * @returns Promise resolving to a single short reply line
+   */
+  getConversationReply(
+    userMessage: string,
+    language: string,
+    stylePrompt?: string
+  ): Promise<string>;
+
+  /**
+   * Suggests a short reply the user could say back to the bot's message (Type 2 suggestion).
+   * Used for "suggested reply to bot" – content is hidden by default, user reveals to see.
+   *
+   * @param botReply - The bot's message that the user would be replying to
+   * @param language - Language for the suggested reply
+   * @param stylePrompt - Optional style/tone
+   * @returns Promise resolving to a short suggested user reply
+   */
+  getSuggestedReplyToBot(
+    botReply: string,
+    language: string,
+    stylePrompt?: string
+  ): Promise<string>;
 }

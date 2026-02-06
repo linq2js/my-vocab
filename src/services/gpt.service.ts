@@ -208,6 +208,54 @@ export interface GptService {
   ) => Promise<string>;
 
   /**
+   * Corrects user-spoken or typed text into natural target language with optional style.
+   *
+   * @param text - Raw text (e.g. from speech) to correct
+   * @param sourceLang - Language of the input
+   * @param targetLang - Language for the corrected output
+   * @param stylePrompt - Optional style instruction
+   * @returns Promise resolving to corrected text in target language
+   */
+  correctText: (
+    text: string,
+    sourceLang: string,
+    targetLang: string,
+    stylePrompt?: string
+  ) => Promise<string>;
+
+  /**
+   * Suggests 2–4 short next things to say based on conversation history.
+   *
+   * @param conversationHistory - What the user said in this session (chronological)
+   * @param language - Language for the suggestions
+   * @returns Promise resolving to a string with 2–4 suggestions (bulleted or numbered)
+   */
+  suggestNextIdeas: (conversationHistory: string[], language: string) => Promise<string>;
+
+  /**
+   * Generates a short conversational reply as if the bot is responding to the user.
+   *
+   * @param userMessage - What the user said
+   * @param language - Language for the reply
+   * @param stylePrompt - Optional style/tone
+   * @returns Promise resolving to the reply text
+   */
+  getConversationReply: (
+    userMessage: string,
+    language: string,
+    stylePrompt?: string
+  ) => Promise<string>;
+
+  /**
+   * Suggests a short reply the user could say back to the bot (Type 2 suggestion).
+   */
+  getSuggestedReplyToBot: (
+    botReply: string,
+    language: string,
+    stylePrompt?: string
+  ) => Promise<string>;
+
+  /**
    * Closes the underlying services.
    * Important for cleanup in tests.
    */
@@ -850,6 +898,134 @@ export function gptService(options: GptServiceOptions = {}): GptService {
   };
 
   /**
+   * Corrects user-spoken or typed text into natural target language.
+   */
+  const correctText = async (
+    text: string,
+    sourceLang: string,
+    targetLang: string,
+    stylePrompt?: string
+  ): Promise<string> => {
+    const trimmedText = text.trim();
+    if (!trimmedText) {
+      throw new Error("Text is required for correction");
+    }
+    const provider = await getActiveProvider();
+    let lastError: Error | null = null;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await provider.correctText(
+          trimmedText,
+          sourceLang.trim(),
+          targetLang.trim(),
+          stylePrompt?.trim()
+        );
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        if (attempt < maxRetries - 1) {
+          await delay(calculateBackoffDelay(attempt, RETRY_DELAY_BASE_MS));
+        }
+      }
+    }
+    throw new Error(
+      `Failed to correct text after ${maxRetries} attempts: ${lastError?.message}`
+    );
+  };
+
+  /**
+   * Suggests 2–4 short next things to say based on conversation history.
+   */
+  const suggestNextIdeas = async (
+    conversationHistory: string[],
+    language: string
+  ): Promise<string> => {
+    const provider = await getActiveProvider();
+    let lastError: Error | null = null;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await provider.suggestNextIdeas(
+          conversationHistory,
+          language.trim()
+        );
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        if (attempt < maxRetries - 1) {
+          await delay(calculateBackoffDelay(attempt, RETRY_DELAY_BASE_MS));
+        }
+      }
+    }
+    throw new Error(
+      `Failed to suggest next ideas after ${maxRetries} attempts: ${lastError?.message}`
+    );
+  };
+
+  /**
+   * Generates a short conversational reply (bot reply to the user).
+   */
+  const getConversationReply = async (
+    userMessage: string,
+    language: string,
+    stylePrompt?: string
+  ): Promise<string> => {
+    const trimmed = userMessage.trim();
+    if (!trimmed) {
+      throw new Error('User message is required for conversation reply');
+    }
+    const provider = await getActiveProvider();
+    let lastError: Error | null = null;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await provider.getConversationReply(
+          trimmed,
+          language.trim(),
+          stylePrompt?.trim()
+        );
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        if (attempt < maxRetries - 1) {
+          await delay(calculateBackoffDelay(attempt, RETRY_DELAY_BASE_MS));
+        }
+      }
+    }
+    throw new Error(
+      `Failed to get conversation reply after ${maxRetries} attempts: ${lastError?.message}`
+    );
+  };
+
+  /**
+   * Suggests a short reply the user could say back to the bot (Type 2 suggestion).
+   */
+  const getSuggestedReplyToBot = async (
+    botReply: string,
+    language: string,
+    stylePrompt?: string
+  ): Promise<string> => {
+    const trimmed = botReply.trim();
+    if (!trimmed) {
+      throw new Error('Bot reply is required for suggested reply');
+    }
+    const provider = await getActiveProvider();
+    let lastError: Error | null = null;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await provider.getSuggestedReplyToBot(
+          trimmed,
+          language.trim(),
+          stylePrompt?.trim()
+        );
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        if (attempt < maxRetries - 1) {
+          await delay(calculateBackoffDelay(attempt, RETRY_DELAY_BASE_MS));
+        }
+      }
+    }
+    throw new Error(
+      `Failed to get suggested reply to bot after ${maxRetries} attempts: ${lastError?.message}`
+    );
+  };
+
+  /**
    * Closes the underlying services.
    */
   const close = (): void => {
@@ -867,6 +1043,10 @@ export function gptService(options: GptServiceOptions = {}): GptService {
     rephrase,
     detectLanguage,
     suggestReply,
+    correctText,
+    suggestNextIdeas,
+    getConversationReply,
+    getSuggestedReplyToBot,
     close,
   };
 }

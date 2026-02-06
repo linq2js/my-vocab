@@ -671,4 +671,185 @@ Generate a thoughtful, contextually appropriate reply. Only output the reply tex
 
     return content.trim();
   }
+
+  /**
+   * Corrects user-spoken or typed text into natural target language with optional style.
+   */
+  async correctText(
+    text: string,
+    sourceLang: string,
+    targetLang: string,
+    stylePrompt?: string
+  ): Promise<string> {
+    const url = `${GEMINI_API_BASE}/${this.model}:generateContent?key=${this.apiKey}`;
+
+    let prompt = `You are a language correction assistant. The user will provide text (possibly from speech recognition) in ${sourceLang}. Correct grammar, spelling, and naturalness, and output the result in ${targetLang}.`;
+    if (stylePrompt) {
+      prompt += ` Apply this style: ${stylePrompt}`;
+    }
+    prompt += ' Return only the corrected text in the target language, nothing else.\n\n';
+    prompt += `Correct and improve this text (output in ${targetLang}):\n\n${text}`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.4, topP: 0.8, topK: 40 },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage =
+        (errorData as { error?: { message?: string } })?.error?.message ||
+        `${response.status} ${response.statusText}`;
+      throw new Error(`Gemini API error: ${errorMessage}`);
+    }
+
+    const data = await response.json();
+    if (!data.candidates || data.candidates.length === 0) {
+      throw new Error('Gemini API returned no response');
+    }
+    const content = data.candidates[0]?.content?.parts?.[0]?.text;
+    if (!content) {
+      throw new Error('Gemini API returned empty content');
+    }
+    return content.trim();
+  }
+
+  /**
+   * Suggests 2–4 short next things to say based on conversation history.
+   */
+  async suggestNextIdeas(conversationHistory: string[], language: string): Promise<string> {
+    if (conversationHistory.length === 0) {
+      return 'Try saying: "Hello", "How are you?", "What did you do today?", "Tell me about yourself."';
+    }
+
+    const url = `${GEMINI_API_BASE}/${this.model}:generateContent?key=${this.apiKey}`;
+
+    const prompt = `You are a conversational coach. Given what the user has said so far in this practice session, suggest 2–4 short, natural follow-up things they could say next in ${language}. Keep each suggestion to one short sentence or phrase. Output as a simple list (numbered or bulleted), nothing else.
+
+What the user has said so far:
+${conversationHistory.map((s, i) => `${i + 1}. ${s}`).join('\n')}
+
+Suggest 2–4 short things they could say next (in ${language}):`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.7, topP: 0.9, topK: 40 },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage =
+        (errorData as { error?: { message?: string } })?.error?.message ||
+        `${response.status} ${response.statusText}`;
+      throw new Error(`Gemini API error: ${errorMessage}`);
+    }
+
+    const data = await response.json();
+    if (!data.candidates || data.candidates.length === 0) {
+      throw new Error('Gemini API returned no response');
+    }
+    const content = data.candidates[0]?.content?.parts?.[0]?.text;
+    if (!content) {
+      throw new Error('Gemini API returned empty content');
+    }
+    return content.trim();
+  }
+
+  /**
+   * Generates a short conversational reply as if the bot is responding to the user.
+   */
+  async getConversationReply(
+    userMessage: string,
+    language: string,
+    stylePrompt?: string
+  ): Promise<string> {
+    const url = `${GEMINI_API_BASE}/${this.model}:generateContent?key=${this.apiKey}`;
+
+    let prompt = `You are a friendly conversation partner. The user said something to you. Reply naturally and briefly in ${language} (one or two short sentences).`;
+    if (stylePrompt) {
+      prompt += ` Style: ${stylePrompt}`;
+    }
+    prompt += ' Output only the reply text, nothing else.\n\n';
+    prompt += `User said: "${userMessage}"\n\nYour reply:`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.7, topP: 0.9, topK: 40 },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage =
+        (errorData as { error?: { message?: string } })?.error?.message ||
+        `${response.status} ${response.statusText}`;
+      throw new Error(`Gemini API error: ${errorMessage}`);
+    }
+
+    const data = await response.json();
+    if (!data.candidates || data.candidates.length === 0) {
+      throw new Error('Gemini API returned no response');
+    }
+    const content = data.candidates[0]?.content?.parts?.[0]?.text;
+    if (!content) {
+      throw new Error('Gemini API returned empty content');
+    }
+    return content.trim();
+  }
+
+  /**
+   * Suggests a short reply the user could say back to the bot's message (Type 2 suggestion).
+   */
+  async getSuggestedReplyToBot(
+    botReply: string,
+    language: string,
+    stylePrompt?: string
+  ): Promise<string> {
+    const url = `${GEMINI_API_BASE}/${this.model}:generateContent?key=${this.apiKey}`;
+
+    let prompt = `You are a conversational coach. The bot just said something to the user. Suggest one short, natural reply the user could say back in ${language} (one short sentence or phrase). Important: do NOT repeat or echo what the user already said (e.g. if they said a greeting like "good afternoon", do not start the suggested reply with that same greeting again). The suggested reply should move the conversation forward—e.g. answer the bot's question, add new information, or respond with something different.`;
+    if (stylePrompt) {
+      prompt += ` Style: ${stylePrompt}`;
+    }
+    prompt += ' Output only the suggested reply text, nothing else.\n\n';
+    prompt += `The bot said: "${botReply}"\n\nSuggest a short reply the user could say (do not repeat the user's own words or greeting):`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.7, topP: 0.9, topK: 40 },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage =
+        (errorData as { error?: { message?: string } })?.error?.message ||
+        `${response.status} ${response.statusText}`;
+      throw new Error(`Gemini API error: ${errorMessage}`);
+    }
+
+    const data = await response.json();
+    if (!data.candidates || data.candidates.length === 0) {
+      throw new Error('Gemini API returned no response');
+    }
+    const content = data.candidates[0]?.content?.parts?.[0]?.text;
+    if (!content) {
+      throw new Error('Gemini API returned empty content');
+    }
+    return content.trim();
+  }
 }

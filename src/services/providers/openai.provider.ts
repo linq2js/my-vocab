@@ -589,4 +589,205 @@ Return ONLY the 2-letter language code, nothing else.`;
 
     return content.trim();
   }
+
+  /**
+   * Corrects user-spoken or typed text into natural target language with optional style.
+   */
+  async correctText(
+    text: string,
+    sourceLang: string,
+    targetLang: string,
+    stylePrompt?: string
+  ): Promise<string> {
+    let systemContent = `You are a language correction assistant. The user will provide text (possibly from speech recognition) in ${sourceLang}. Correct grammar, spelling, and naturalness, and output the result in ${targetLang}.`;
+    if (stylePrompt) {
+      systemContent += ` Apply this style: ${stylePrompt}`;
+    }
+    systemContent += ' Return only the corrected text in the target language, nothing else.';
+
+    const userContent = `Correct and improve this text (output in ${targetLang}):\n\n${text}`;
+
+    const response = await fetch(OPENAI_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: this.model,
+        messages: [
+          { role: 'system', content: systemContent },
+          { role: 'user', content: userContent },
+        ],
+        temperature: 0.4,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage =
+        (errorData as { error?: { message?: string } })?.error?.message ||
+        `${response.status} ${response.statusText}`;
+      throw new Error(`OpenAI API error: ${errorMessage}`);
+    }
+
+    const data = await response.json();
+    if (!data.choices || data.choices.length === 0) {
+      throw new Error('OpenAI API returned no response');
+    }
+    const content = data.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('OpenAI API returned empty content');
+    }
+    return content.trim();
+  }
+
+  /**
+   * Suggests 2–4 short next things to say based on conversation history.
+   */
+  async suggestNextIdeas(conversationHistory: string[], language: string): Promise<string> {
+    if (conversationHistory.length === 0) {
+      return 'Try saying: "Hello", "How are you?", "What did you do today?", "Tell me about yourself."';
+    }
+
+    const systemContent = `You are a conversational coach. Given what the user has said so far in this practice session, suggest 2–4 short, natural follow-up things they could say next in ${language}. Keep each suggestion to one short sentence or phrase. Output as a simple list (numbered or bulleted), nothing else.`;
+
+    const userContent = `What the user has said so far:\n${conversationHistory.map((s, i) => `${i + 1}. ${s}`).join('\n')}\n\nSuggest 2–4 short things they could say next (in ${language}):`;
+
+    const response = await fetch(OPENAI_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: this.model,
+        messages: [
+          { role: 'system', content: systemContent },
+          { role: 'user', content: userContent },
+        ],
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage =
+        (errorData as { error?: { message?: string } })?.error?.message ||
+        `${response.status} ${response.statusText}`;
+      throw new Error(`OpenAI API error: ${errorMessage}`);
+    }
+
+    const data = await response.json();
+    if (!data.choices || data.choices.length === 0) {
+      throw new Error('OpenAI API returned no response');
+    }
+    const content = data.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('OpenAI API returned empty content');
+    }
+    return content.trim();
+  }
+
+  /**
+   * Generates a short conversational reply as if the bot is responding to the user.
+   */
+  async getConversationReply(
+    userMessage: string,
+    language: string,
+    stylePrompt?: string
+  ): Promise<string> {
+    let systemContent = `You are a friendly conversation partner. The user said something to you. Reply naturally and briefly in ${language} (one or two short sentences).`;
+    if (stylePrompt) {
+      systemContent += ` Style: ${stylePrompt}`;
+    }
+    systemContent += ' Output only the reply text, nothing else.';
+
+    const userContent = `User said: "${userMessage}"\n\nYour reply:`;
+
+    const response = await fetch(OPENAI_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: this.model,
+        messages: [
+          { role: 'system', content: systemContent },
+          { role: 'user', content: userContent },
+        ],
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage =
+        (errorData as { error?: { message?: string } })?.error?.message ||
+        `${response.status} ${response.statusText}`;
+      throw new Error(`OpenAI API error: ${errorMessage}`);
+    }
+
+    const data = await response.json();
+    if (!data.choices || data.choices.length === 0) {
+      throw new Error('OpenAI API returned no response');
+    }
+    const content = data.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('OpenAI API returned empty content');
+    }
+    return content.trim();
+  }
+
+  /**
+   * Suggests a short reply the user could say back to the bot's message (Type 2 suggestion).
+   */
+  async getSuggestedReplyToBot(
+    botReply: string,
+    language: string,
+    stylePrompt?: string
+  ): Promise<string> {
+    let systemContent = `You are a conversational coach. The bot just said something to the user. Suggest one short, natural reply the user could say back in ${language} (one short sentence or phrase). Important: do NOT repeat or echo what the user already said (e.g. if they said a greeting like "good afternoon", do not start the suggested reply with that same greeting again). The suggested reply should move the conversation forward—e.g. answer the bot's question, add new information, or respond with something different.`;
+    if (stylePrompt) {
+      systemContent += ` Style: ${stylePrompt}`;
+    }
+    systemContent += ' Output only the suggested reply text, nothing else.';
+
+    const userContent = `The bot said: "${botReply}"\n\nSuggest a short reply the user could say (do not repeat the user's own words or greeting):`;
+
+    const response = await fetch(OPENAI_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: this.model,
+        messages: [
+          { role: 'system', content: systemContent },
+          { role: 'user', content: userContent },
+        ],
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage =
+        (errorData as { error?: { message?: string } })?.error?.message ||
+        `${response.status} ${response.statusText}`;
+      throw new Error(`OpenAI API error: ${errorMessage}`);
+    }
+
+    const data = await response.json();
+    if (!data.choices || data.choices.length === 0) {
+      throw new Error('OpenAI API returned no response');
+    }
+    const content = data.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('OpenAI API returned empty content');
+    }
+    return content.trim();
+  }
 }

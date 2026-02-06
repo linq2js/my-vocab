@@ -11,6 +11,12 @@ export {
 
 export { useSpeech, type UseSpeechResult } from './useSpeech';
 
+export {
+  useSpeechRecognition,
+  type UseSpeechRecognitionResult,
+  type UseSpeechRecognitionOptions,
+} from './useSpeechRecognition';
+
 export { 
   usePWA, 
   initPWA, 

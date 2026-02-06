@@ -32,6 +32,7 @@ import { FilterPanel } from "../components/molecules/FilterPanel";
 import { FloatingActionButton } from "../components/molecules/FloatingActionButton";
 import { VocabList } from "../components/organisms/VocabList";
 import { TranslateModal } from "../components/organisms/TranslateModal";
+import { VoiceModal } from "../components/organisms/VoiceModal";
 import { Icon } from "../components/atoms/Icon";
 import { Toast } from "../components/atoms/Toast";
 import { vocabStore } from "../stores/vocab.store";
@@ -65,6 +66,9 @@ export const HomePage = (): React.ReactElement => {
   const [translateInitialText, setTranslateInitialText] = useState("");
   const [translateInitialLang, setTranslateInitialLang] = useState("");
   const [translateAutoTranslate, setTranslateAutoTranslate] = useState(false);
+
+  // Voice modal state
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
 
   // Initialize vocab store on mount (fire and forget - UI shows defaults immediately)
   useEffect(() => {
@@ -214,6 +218,30 @@ export const HomePage = (): React.ReactElement => {
     setIsTranslateModalOpen(false);
   }, []);
 
+  /**
+   * Handle voice FAB click – open voice modal.
+   */
+  const handleVoiceFABClick = useCallback((): void => {
+    setIsVoiceModalOpen(true);
+  }, []);
+
+  /**
+   * Handle close voice modal.
+   */
+  const handleCloseVoiceModal = useCallback((): void => {
+    setIsVoiceModalOpen(false);
+  }, []);
+
+  /**
+   * Handle translate from conversation mode – open translate modal with text and source lang.
+   */
+  const handleTranslateFromConversation = useCallback((text: string, sourceLang: string): void => {
+    setTranslateInitialText(text);
+    setTranslateInitialLang(sourceLang);
+    setTranslateAutoTranslate(true);
+    setIsTranslateModalOpen(true);
+  }, []);
+
   return (
     <PageLayout>
       <div className="space-y-4 pb-20">
@@ -297,6 +325,17 @@ export const HomePage = (): React.ReactElement => {
 
       {/* Floating Action Buttons */}
       <div className="fixed bottom-6 right-6 z-50 flex flex-row items-center gap-3">
+        {/* Voice Mode Button (left of Translate) */}
+        <button
+          type="button"
+          onClick={handleVoiceFABClick}
+          className="w-12 h-12 rounded-full bg-amber-500 hover:bg-amber-600 text-white shadow-lg flex items-center justify-center transition-all duration-200"
+          aria-label="Open conversation mode"
+          title="Conversation mode – speak and get corrections"
+        >
+          <Icon name="mic" size="md" />
+        </button>
+
         {/* Translate Button */}
         <button
           type="button"
@@ -346,6 +385,13 @@ export const HomePage = (): React.ReactElement => {
         initialText={translateInitialText}
         initialSourceLang={translateInitialLang}
         autoTranslate={translateAutoTranslate}
+      />
+
+      {/* Voice Modal */}
+      <VoiceModal
+        isOpen={isVoiceModalOpen}
+        onClose={handleCloseVoiceModal}
+        onTranslate={handleTranslateFromConversation}
       />
     </PageLayout>
   );

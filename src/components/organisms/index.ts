@@ -10,3 +10,6 @@ export type { SettingsPanelProps, ProviderTestResults } from './SettingsPanel';
 
 export { TranslateModal } from './TranslateModal';
 export type { TranslateModalProps } from './TranslateModal';
+
+export { VoiceModal } from './VoiceModal';
+export type { VoiceModalProps } from './VoiceModal';

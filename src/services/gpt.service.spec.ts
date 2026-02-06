@@ -77,6 +77,10 @@ describe('gptService', () => {
       rephrase: vi.fn().mockResolvedValue('This is the rephrased text.'),
       detectLanguage: vi.fn().mockResolvedValue('en'),
       suggestReply: vi.fn().mockResolvedValue('Thank you for your message.'),
+      correctText: vi.fn().mockResolvedValue('Corrected text in target language.'),
+      suggestNextIdeas: vi.fn().mockResolvedValue('1. Hello\n2. How are you?'),
+      getConversationReply: vi.fn().mockResolvedValue('Hello! How can I help you today?'),
+      getSuggestedReplyToBot: vi.fn().mockResolvedValue('I am doing well, thank you!'),
     };
 
     mockGeminiProvider = {
@@ -88,6 +92,10 @@ describe('gptService', () => {
       rephrase: vi.fn().mockResolvedValue('This is the rephrased text.'),
       detectLanguage: vi.fn().mockResolvedValue('en'),
       suggestReply: vi.fn().mockResolvedValue('Thank you for your message.'),
+      correctText: vi.fn().mockResolvedValue('Corrected text in target language.'),
+      suggestNextIdeas: vi.fn().mockResolvedValue('1. Hello\n2. How are you?'),
+      getConversationReply: vi.fn().mockResolvedValue('Hello! How can I help you today?'),
+      getSuggestedReplyToBot: vi.fn().mockResolvedValue('I am doing well, thank you!'),
     };
 
     // Create service with mocks
