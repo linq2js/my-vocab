@@ -235,13 +235,13 @@ export interface GptService {
   /**
    * Generates a short conversational reply as if the bot is responding to the user.
    *
-   * @param userMessage - What the user said
+   * @param conversationHistory - Array of { user, bot? } turns (corrected text)
    * @param language - Language for the reply
    * @param stylePrompt - Optional style/tone
    * @returns Promise resolving to the reply text
    */
   getConversationReply: (
-    userMessage: string,
+    conversationHistory: Array<{ user: string; bot?: string }>,
     language: string,
     stylePrompt?: string
   ) => Promise<string>;
@@ -960,23 +960,22 @@ export function gptService(options: GptServiceOptions = {}): GptService {
   };
 
   /**
-   * Generates a short conversational reply (bot reply to the user).
+   * Generates a short conversational reply using the full conversation history.
    */
   const getConversationReply = async (
-    userMessage: string,
+    conversationHistory: Array<{ user: string; bot?: string }>,
     language: string,
     stylePrompt?: string
   ): Promise<string> => {
-    const trimmed = userMessage.trim();
-    if (!trimmed) {
-      throw new Error('User message is required for conversation reply');
+    if (!conversationHistory.length) {
+      throw new Error('Conversation history is required for conversation reply');
     }
     const provider = await getActiveProvider();
     let lastError: Error | null = null;
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
         return await provider.getConversationReply(
-          trimmed,
+          conversationHistory,
           language.trim(),
           stylePrompt?.trim()
         );

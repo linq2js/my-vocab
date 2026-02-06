@@ -208,15 +208,15 @@ export interface IGptProvider {
 
   /**
    * Generates a short conversational reply as if the bot is responding to the user.
-   * Used for "Replies" / bot message list in conversation mode.
+   * Uses the corrected text and full conversation history for better context.
    *
-   * @param userMessage - What the user said (e.g. corrected or raw)
+   * @param conversationHistory - Array of { user, bot? } turns (corrected text); latest turn last
    * @param language - Language for the reply
    * @param stylePrompt - Optional style/tone for the reply
    * @returns Promise resolving to a single short reply line
    */
   getConversationReply(
-    userMessage: string,
+    conversationHistory: Array<{ user: string; bot?: string }>,
     language: string,
     stylePrompt?: string
   ): Promise<string>;

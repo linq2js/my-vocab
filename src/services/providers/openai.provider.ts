@@ -690,20 +690,29 @@ Return ONLY the 2-letter language code, nothing else.`;
   }
 
   /**
-   * Generates a short conversational reply as if the bot is responding to the user.
+   * Generates a short conversational reply using the full conversation history for context.
    */
   async getConversationReply(
-    userMessage: string,
+    conversationHistory: Array<{ user: string; bot?: string }>,
     language: string,
     stylePrompt?: string
   ): Promise<string> {
-    let systemContent = `You are a friendly conversation partner. The user said something to you. Reply naturally and briefly in ${language} (one or two short sentences).`;
+    let systemContent = `You are a friendly conversation partner. Reply naturally and briefly in ${language} (one or two short sentences).`;
     if (stylePrompt) {
       systemContent += ` Style: ${stylePrompt}`;
     }
     systemContent += ' Output only the reply text, nothing else.';
 
-    const userContent = `User said: "${userMessage}"\n\nYour reply:`;
+    // Build multi-turn messages from conversation history
+    const messages: Array<{ role: string; content: string }> = [
+      { role: 'system', content: systemContent },
+    ];
+    for (const turn of conversationHistory) {
+      messages.push({ role: 'user', content: turn.user });
+      if (turn.bot) {
+        messages.push({ role: 'assistant', content: turn.bot });
+      }
+    }
 
     const response = await fetch(OPENAI_API_URL, {
       method: 'POST',
@@ -713,10 +722,7 @@ Return ONLY the 2-letter language code, nothing else.`;
       },
       body: JSON.stringify({
         model: this.model,
-        messages: [
-          { role: 'system', content: systemContent },
-          { role: 'user', content: userContent },
-        ],
+        messages,
         temperature: 0.7,
       }),
     });

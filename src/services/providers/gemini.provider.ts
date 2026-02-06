@@ -764,27 +764,38 @@ Suggest 2–4 short things they could say next (in ${language}):`;
   }
 
   /**
-   * Generates a short conversational reply as if the bot is responding to the user.
+   * Generates a short conversational reply using the full conversation history for context.
    */
   async getConversationReply(
-    userMessage: string,
+    conversationHistory: Array<{ user: string; bot?: string }>,
     language: string,
     stylePrompt?: string
   ): Promise<string> {
     const url = `${GEMINI_API_BASE}/${this.model}:generateContent?key=${this.apiKey}`;
 
-    let prompt = `You are a friendly conversation partner. The user said something to you. Reply naturally and briefly in ${language} (one or two short sentences).`;
+    let systemPrompt = `You are a friendly conversation partner. Reply naturally and briefly in ${language} (one or two short sentences).`;
     if (stylePrompt) {
-      prompt += ` Style: ${stylePrompt}`;
+      systemPrompt += ` Style: ${stylePrompt}`;
     }
-    prompt += ' Output only the reply text, nothing else.\n\n';
-    prompt += `User said: "${userMessage}"\n\nYour reply:`;
+    systemPrompt += ' Output only the reply text, nothing else.';
+
+    // Build multi-turn contents for Gemini
+    const contents: Array<{ role: string; parts: Array<{ text: string }> }> = [];
+    // System instruction as first user message
+    contents.push({ role: 'user', parts: [{ text: systemPrompt }] });
+    contents.push({ role: 'model', parts: [{ text: 'Understood. I will reply naturally and briefly.' }] });
+    for (const turn of conversationHistory) {
+      contents.push({ role: 'user', parts: [{ text: turn.user }] });
+      if (turn.bot) {
+        contents.push({ role: 'model', parts: [{ text: turn.bot }] });
+      }
+    }
 
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
+        contents,
         generationConfig: { temperature: 0.7, topP: 0.9, topK: 40 },
       }),
     });

@@ -82,6 +82,15 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
   const [showSuggestion, setShowSuggestion] = useState(true);
   const [showBotReply, setShowBotReply] = useState(true);
   const [showSuggestedReply, setShowSuggestedReply] = useState(true);
+  /** Bot role description (persisted in localStorage) */
+  const [botRole, setBotRole] = useState(() => localStorage.getItem('voiceModal_botRole') ?? '');
+  const botRoleRef = useRef(botRole);
+  botRoleRef.current = botRole;
+  const handleBotRoleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setBotRole(value);
+    localStorage.setItem('voiceModal_botRole', value);
+  }, []);
   /** Unified list: each turn has You said, Correction, Suggestion, and optionally Bot + Suggested reply */
   const [unifiedTurns, setUnifiedTurns] = useState<UnifiedTurn[]>([]);
   const [isCorrecting, setIsCorrecting] = useState(false);
@@ -91,6 +100,8 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
 
   const conversationRef = useRef<string[]>([]);
   conversationRef.current = unifiedTurns.map((t) => t.userSaid);
+  const unifiedTurnsRef = useRef(unifiedTurns);
+  unifiedTurnsRef.current = unifiedTurns;
   const showSuggestionRef = useRef(showSuggestion);
   showSuggestionRef.current = showSuggestion;
   const showBotReplyRef = useRef(showBotReply);
@@ -139,6 +150,11 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
 
         const gpt = gptService();
         const stylePrompt = selectedStyle?.prompt;
+        const currentBotRole = botRoleRef.current.trim();
+        // Combine style prompt with bot role for reply APIs
+        const replyStylePrompt = [stylePrompt, currentBotRole ? `You are: ${currentBotRole}` : '']
+          .filter(Boolean)
+          .join('. ') || undefined;
 
         const turnId = `turn-${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const wantSuggestion = showSuggestionRef.current;
@@ -166,12 +182,6 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
           setVoiceError(err instanceof Error ? err.message : 'Something went wrong');
         };
 
-        const pCorrect = gpt
-          .correctText(segment, sourceLang, targetLang, stylePrompt)
-          .then((corrected) => updateTurn({ correction: corrected }))
-          .catch(handleErr)
-          .finally(() => setIsCorrecting(false));
-
         const pSuggest = wantSuggestion
           ? gpt
               .suggestNextIdeas(historyWithNew, targetLang)
@@ -180,9 +190,28 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
               .finally(() => setIsSuggesting(false))
           : Promise.resolve();
 
-        const pReply = wantBotReply
-          ? gpt
-              .getConversationReply(segment, targetLang, stylePrompt)
+        // Correction runs first; then reply uses the corrected text + conversation history
+        const pCorrectAndReply = gpt
+          .correctText(segment, sourceLang, targetLang, stylePrompt)
+          .then((corrected) => {
+            updateTurn({ correction: corrected });
+            setIsCorrecting(false);
+
+            if (!wantBotReply) return;
+
+            // Build conversation history from previous turns (corrected text + bot replies)
+            const prevTurns = conversationRef.current.length > 0
+              ? unifiedTurnsRef.current.slice(0, -1) // exclude the placeholder we just added
+              : [];
+            const history: Array<{ user: string; bot?: string }> = prevTurns.map((t) => ({
+              user: t.correction || t.userSaid,
+              bot: t.botReply?.text,
+            }));
+            // Add current turn with corrected text
+            history.push({ user: corrected });
+
+            return gpt
+              .getConversationReply(history, targetLang, replyStylePrompt)
               .then((replyText) => {
                 updateTurn({
                   botReply: { text: replyText, isBlurred: true },
@@ -190,20 +219,25 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
                 if (isSpeechSupported) speak(replyText, targetLang);
                 return wantSuggestedReply
                   ? gpt
-                      .getSuggestedReplyToBot(replyText, targetLang, stylePrompt)
+                      .getSuggestedReplyToBot(replyText, targetLang, replyStylePrompt)
                       .then((suggestedReplyText) => {
                         updateTurn({
                           suggestedReply: { text: suggestedReplyText, isBlurred: true },
                         });
                       })
                       .catch(() => {})
-                  : Promise.resolve();
+                  : undefined;
               })
               .catch(handleErr)
-              .finally(() => setIsReplying(false))
-          : Promise.resolve();
+              .finally(() => setIsReplying(false));
+          })
+          .catch((err) => {
+            handleErr(err);
+            setIsCorrecting(false);
+            setIsReplying(false);
+          });
 
-        Promise.allSettled([pCorrect, pSuggest, pReply]).finally(() => gpt.close());
+        Promise.allSettled([pCorrectAndReply, pSuggest]).finally(() => gpt.close());
       },
       [sourceLang, targetLang, selectedStyle?.prompt, isSpeechSupported, speak]
     ),
@@ -427,6 +461,17 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
                 <span className="text-sm text-gray-600 dark:text-gray-400">How to respond</span>
               </label>
             </div>
+            {/* Bot role input (visible when Chat with Bot is on) */}
+            {showBotReply && (
+              <input
+                type="text"
+                value={botRole}
+                onChange={handleBotRoleChange}
+                disabled={isListening}
+                placeholder="Describe the bot role (e.g. a barista at a coffee shop)"
+                className="mt-2 w-full px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              />
+            )}
           </div>
 
           {/* Result */}
