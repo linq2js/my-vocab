@@ -242,6 +242,7 @@ export const HomePage = (): React.ReactElement => {
     setIsTranslateModalOpen(true);
   }, []);
 
+
   return (
     <PageLayout>
       <div className="space-y-4 pb-20">

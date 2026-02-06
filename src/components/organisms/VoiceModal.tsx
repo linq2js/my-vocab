@@ -16,8 +16,12 @@ import { Button } from '../atoms/Button';
 import { Icon } from '../atoms/Icon';
 import { LANGUAGES } from '../../constants/languages';
 import { settingsStore } from '../../stores/settings.store';
+import { vocabStore } from '../../stores/vocab.store';
 import { gptService } from '../../services/gpt.service';
 import { useSpeechRecognition, useSpeech } from '../../hooks';
+import { VocabForm } from './VocabForm';
+import type { Vocabulary } from '../../types/vocabulary';
+import type { VocabFormData } from './VocabForm';
 import type { TranslationStyle } from '../../types/translation';
 
 /** One turn in the unified list: user said, correction, suggestion, and optionally bot reply + suggested reply */
@@ -76,7 +80,6 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
   const selectId = useId();
 
   const [sourceLang, setSourceLang] = useState('en');
-  const [targetLang, setTargetLang] = useState('en');
   const [selectedStyleId, setSelectedStyleId] = useState<string | null>(null);
   /** Options: which sections to show */
   const [showSuggestion, setShowSuggestion] = useState(true);
@@ -97,6 +100,44 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [isReplying, setIsReplying] = useState(false);
   const [voiceError, setVoiceError] = useState<string | null>(null);
+
+  /** Add vocab modal state */
+  const [addVocabText, setAddVocabText] = useState<string | null>(null);
+  const [isAddVocabSaving, setIsAddVocabSaving] = useState(false);
+  const isAddVocabOpen = addVocabText !== null;
+
+  const handleOpenAddVocab = useCallback((text: string) => {
+    setAddVocabText(text);
+  }, []);
+
+  const handleCloseAddVocab = useCallback(() => {
+    setAddVocabText(null);
+    setIsAddVocabSaving(false);
+  }, []);
+
+  const handleAddVocabSubmit = useCallback(async (data: Partial<Vocabulary> & VocabFormData) => {
+    setIsAddVocabSaving(true);
+    try {
+      await vocabStore.add({
+        text: data.text,
+        description: data.description,
+        tags: data.tags,
+        language: data.language,
+        definition: data.definition,
+        ipa: data.ipa,
+        examples: data.examples,
+        partOfSpeech: data.partOfSpeech,
+        forms: data.forms,
+        extra: data.extra,
+        senses: data.senses,
+      });
+      handleCloseAddVocab();
+    } catch (error) {
+      console.error('Failed to add vocabulary:', error);
+    } finally {
+      setIsAddVocabSaving(false);
+    }
+  }, [handleCloseAddVocab]);
 
   const conversationRef = useRef<string[]>([]);
   conversationRef.current = unifiedTurns.map((t) => t.userSaid);
@@ -184,7 +225,7 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
 
         const pSuggest = wantSuggestion
           ? gpt
-              .suggestNextIdeas(historyWithNew, targetLang)
+              .suggestNextIdeas(historyWithNew, sourceLang)
               .then((suggestions) => updateTurn({ suggestionLines: parseSuggestionLines(suggestions) }))
               .catch(handleErr)
               .finally(() => setIsSuggesting(false))
@@ -192,7 +233,7 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
 
         // Correction runs first; then reply uses the corrected text + conversation history
         const pCorrectAndReply = gpt
-          .correctText(segment, sourceLang, targetLang, stylePrompt)
+          .correctText(segment, sourceLang, sourceLang, stylePrompt) // same language for source & target
           .then((corrected) => {
             updateTurn({ correction: corrected });
             setIsCorrecting(false);
@@ -211,15 +252,15 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
             history.push({ user: corrected });
 
             return gpt
-              .getConversationReply(history, targetLang, replyStylePrompt)
+              .getConversationReply(history, sourceLang, replyStylePrompt)
               .then((replyText) => {
                 updateTurn({
                   botReply: { text: replyText, isBlurred: true },
                 });
-                if (isSpeechSupported) speak(replyText, targetLang);
+                if (isSpeechSupported) speak(replyText, sourceLang);
                 return wantSuggestedReply
                   ? gpt
-                      .getSuggestedReplyToBot(replyText, targetLang, replyStylePrompt)
+                      .getSuggestedReplyToBot(replyText, sourceLang, replyStylePrompt)
                       .then((suggestedReplyText) => {
                         updateTurn({
                           suggestedReply: { text: suggestedReplyText, isBlurred: true },
@@ -239,7 +280,7 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
 
         Promise.allSettled([pCorrectAndReply, pSuggest]).finally(() => gpt.close());
       },
-      [sourceLang, targetLang, selectedStyle?.prompt, isSpeechSupported, speak]
+      [sourceLang, selectedStyle?.prompt, isSpeechSupported, speak]
     ),
   });
   startListeningRef.current = startListening;
@@ -311,50 +352,27 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
     <ModalLayout isOpen={isOpen} onClose={onClose} title="Conversation Mode" size="full">
       <div className="flex flex-col flex-1 min-h-0">
         <div className="flex-1 min-h-0 overflow-y-auto space-y-4 p-4">
-          {/* Language: source & dest */}
-          <div className="flex items-center gap-2">
-            <div className="flex-1">
-              <label
-                htmlFor={`${selectId}-voice-source`}
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-              >
-                Source language
-              </label>
-              <select
-                id={`${selectId}-voice-source`}
-                value={sourceLang}
-                onChange={(e) => setSourceLang(e.target.value)}
-                disabled={isListening}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
-              >
-                {LANGUAGES.map((lang) => (
-                  <option key={lang.code} value={lang.code}>
-                    {lang.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex-1">
-              <label
-                htmlFor={`${selectId}-voice-dest`}
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-              >
-                Target language
-              </label>
-              <select
-                id={`${selectId}-voice-dest`}
-                value={targetLang}
-                onChange={(e) => setTargetLang(e.target.value)}
-                disabled={isListening}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
-              >
-                {LANGUAGES.map((lang) => (
-                  <option key={lang.code} value={lang.code}>
-                    {lang.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+          {/* Language */}
+          <div>
+            <label
+              htmlFor={`${selectId}-voice-source`}
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+            >
+              Language
+            </label>
+            <select
+              id={`${selectId}-voice-source`}
+              value={sourceLang}
+              onChange={(e) => setSourceLang(e.target.value)}
+              disabled={isListening}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+            >
+              {LANGUAGES.map((lang) => (
+                <option key={lang.code} value={lang.code}>
+                  {lang.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Style */}
@@ -515,7 +533,7 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
                               {isSpeechSupported && (
                                 <button
                                   type="button"
-                                  onClick={() => speak(turn.correction, targetLang)}
+                                  onClick={() => speak(turn.correction, sourceLang)}
                                   className="p-1.5 rounded-lg text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                   aria-label="Read aloud"
                                 >
@@ -525,13 +543,21 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
                               {onTranslate && (
                                 <button
                                   type="button"
-                                  onClick={() => onTranslate(turn.correction, targetLang)}
+                                  onClick={() => onTranslate(turn.correction, sourceLang)}
                                   className="p-1.5 rounded-lg text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                   aria-label="Translate"
                                 >
                                   <Icon name="translate" size="sm" />
                                 </button>
                               )}
+                              <button
+                                type="button"
+                                onClick={() => handleOpenAddVocab(turn.correction)}
+                                className="p-1.5 rounded-lg text-gray-500 hover:text-green-600 dark:text-gray-400 dark:hover:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                aria-label="Add to vocabulary"
+                              >
+                                <Icon name="plus" size="sm" />
+                              </button>
                             </div>
                           </>
                         ) : (
@@ -556,7 +582,7 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
                                     {isSpeechSupported && (
                                       <button
                                         type="button"
-                                        onClick={() => speak(line, targetLang)}
+                                        onClick={() => speak(line, sourceLang)}
                                         className="p-1 rounded-lg text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                         aria-label="Read aloud"
                                       >
@@ -566,13 +592,21 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
                                     {onTranslate && (
                                       <button
                                         type="button"
-                                        onClick={() => onTranslate(line, targetLang)}
+                                        onClick={() => onTranslate(line, sourceLang)}
                                         className="p-1 rounded-lg text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                         aria-label="Translate"
                                       >
                                         <Icon name="translate" size="sm" />
                                       </button>
                                     )}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenAddVocab(line)}
+                                      className="p-1 rounded-lg text-gray-500 hover:text-green-600 dark:text-gray-400 dark:hover:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                      aria-label="Add to vocabulary"
+                                    >
+                                      <Icon name="plus" size="sm" />
+                                    </button>
                                   </div>
                                 </div>
                               </li>
@@ -604,7 +638,7 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
                                 {isSpeechSupported && (
                                   <button
                                     type="button"
-                                    onClick={() => speak(turn.botReply!.text, targetLang)}
+                                    onClick={() => speak(turn.botReply!.text, sourceLang)}
                                     className="p-1.5 rounded-lg text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                     aria-label="Read aloud"
                                   >
@@ -614,13 +648,21 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
                                 {onTranslate && (
                                   <button
                                     type="button"
-                                    onClick={() => onTranslate(turn.botReply!.text, targetLang)}
+                                    onClick={() => onTranslate(turn.botReply!.text, sourceLang)}
                                     className="p-1.5 rounded-lg text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                     aria-label="Translate"
                                   >
                                     <Icon name="translate" size="sm" />
                                   </button>
                                 )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenAddVocab(turn.botReply!.text)}
+                                  className="p-1.5 rounded-lg text-gray-500 hover:text-green-600 dark:text-gray-400 dark:hover:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                  aria-label="Add to vocabulary"
+                                >
+                                  <Icon name="plus" size="sm" />
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => toggleTurnBotBlur(turn.id)}
@@ -655,7 +697,7 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
                             {isSpeechSupported && (
                               <button
                                 type="button"
-                                onClick={() => speak(turn.suggestedReply!.text, targetLang)}
+                                onClick={() => speak(turn.suggestedReply!.text, sourceLang)}
                                 className="p-1.5 rounded-lg text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                 aria-label="Read aloud"
                               >
@@ -665,13 +707,21 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
                             {onTranslate && (
                               <button
                                 type="button"
-                                onClick={() => onTranslate(turn.suggestedReply!.text, targetLang)}
+                                onClick={() => onTranslate(turn.suggestedReply!.text, sourceLang)}
                                 className="p-1.5 rounded-lg text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                 aria-label="Translate"
                               >
                                 <Icon name="translate" size="sm" />
                               </button>
                             )}
+                            <button
+                              type="button"
+                              onClick={() => handleOpenAddVocab(turn.suggestedReply!.text)}
+                              className="p-1.5 rounded-lg text-gray-500 hover:text-green-600 dark:text-gray-400 dark:hover:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              aria-label="Add to vocabulary"
+                            >
+                              <Icon name="plus" size="sm" />
+                            </button>
                             <button
                               type="button"
                               onClick={() => toggleTurnSuggestedReplyBlur(turn.id)}
@@ -731,6 +781,24 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
           </Button>
         </div>
       </div>
+
+      {/* Add Vocab Modal */}
+      <ModalLayout
+        isOpen={isAddVocabOpen}
+        onClose={handleCloseAddVocab}
+        title="Add Vocabulary"
+        size="full"
+        highZIndex
+      >
+        <div className="flex-1 overflow-y-auto p-4">
+          <VocabForm
+            onSubmit={handleAddVocabSubmit}
+            onCancel={handleCloseAddVocab}
+            initialData={addVocabText ? { text: addVocabText, tags: [], language: sourceLang } as unknown as Vocabulary : undefined}
+            loading={isAddVocabSaving}
+          />
+        </div>
+      </ModalLayout>
     </ModalLayout>
   );
 };
