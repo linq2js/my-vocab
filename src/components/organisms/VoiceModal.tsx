@@ -362,10 +362,9 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
           {/* Options */}
           <div>
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Options</p>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2 lg:flex-row lg:gap-6">
               {/* Suggestion toggle */}
-              <label className="flex items-center justify-between cursor-pointer select-none">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Ideas</span>
+              <label className="flex items-center gap-2 cursor-pointer select-none">
                 <button
                   type="button"
                   role="switch"
@@ -383,10 +382,10 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
                     style={{ marginTop: 2 }}
                   />
                 </button>
+                <span className="text-sm text-gray-600 dark:text-gray-400">What to say next</span>
               </label>
               {/* Chat with Bot toggle */}
-              <label className="flex items-center justify-between cursor-pointer select-none">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Chat with Bot</span>
+              <label className="flex items-center gap-2 cursor-pointer select-none">
                 <button
                   type="button"
                   role="switch"
@@ -404,10 +403,10 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
                     style={{ marginTop: 2 }}
                   />
                 </button>
+                <span className="text-sm text-gray-600 dark:text-gray-400">Chat with Bot</span>
               </label>
               {/* Suggested reply toggle (dimmed when Chat with Bot is off) */}
-              <label className={`flex items-center justify-between cursor-pointer select-none ${!showBotReply ? 'opacity-40 pointer-events-none' : ''}`}>
-                <span className="text-sm text-gray-600 dark:text-gray-400">Response</span>
+              <label className={`flex items-center gap-2 cursor-pointer select-none ${!showBotReply ? 'opacity-40 pointer-events-none' : ''}`}>
                 <button
                   type="button"
                   role="switch"
@@ -425,6 +424,7 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
                     style={{ marginTop: 2 }}
                   />
                 </button>
+                <span className="text-sm text-gray-600 dark:text-gray-400">How to respond</span>
               </label>
             </div>
           </div>
@@ -499,37 +499,40 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
                       {/* Suggestion (only if suggestion lines exist or still loading) */}
                       {(turn.suggestionLines.length > 0 || (isLatest && isSuggesting)) && (
                       <div>
-                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Ideas</p>
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">What to say next</p>
                         {turn.suggestionLines.length > 0 ? (
-                          <>
-                            <ul className="list-disc list-inside text-sm text-gray-900 dark:text-gray-100 space-y-0.5 mb-1">
-                              {turn.suggestionLines.map((line, i) => (
-                                <li key={i}>{line}</li>
-                              ))}
-                            </ul>
-                            <div className="flex items-center gap-2">
-                              {isSpeechSupported && (
-                                <button
-                                  type="button"
-                                  onClick={() => speak(turn.suggestionLines.join(' '), targetLang)}
-                                  className="p-1.5 rounded-lg text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                  aria-label="Read aloud"
-                                >
-                                  <Icon name="volume" size="sm" />
-                                </button>
-                              )}
-                              {onTranslate && (
-                                <button
-                                  type="button"
-                                  onClick={() => onTranslate(turn.suggestionLines.join('\n'), targetLang)}
-                                  className="p-1.5 rounded-lg text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                  aria-label="Translate"
-                                >
-                                  <Icon name="translate" size="sm" />
-                                </button>
-                              )}
-                            </div>
-                          </>
+                          <ul className="space-y-2">
+                            {turn.suggestionLines.map((line, i) => (
+                              <li key={i} className="flex items-start gap-2 text-sm text-gray-900 dark:text-gray-100">
+                                <span className="mt-1.5 shrink-0 h-1.5 w-1.5 rounded-full bg-gray-400 dark:bg-gray-500" />
+                                <div className="flex-1">
+                                  <span>{line}</span>
+                                  <div className="flex items-center gap-1 mt-0.5">
+                                    {isSpeechSupported && (
+                                      <button
+                                        type="button"
+                                        onClick={() => speak(line, targetLang)}
+                                        className="p-1 rounded-lg text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                        aria-label="Read aloud"
+                                      >
+                                        <Icon name="volume" size="sm" />
+                                      </button>
+                                    )}
+                                    {onTranslate && (
+                                      <button
+                                        type="button"
+                                        onClick={() => onTranslate(line, targetLang)}
+                                        className="p-1 rounded-lg text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                        aria-label="Translate"
+                                      >
+                                        <Icon name="translate" size="sm" />
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
                         ) : (
                           <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
                             <Icon name="spinner" size="sm" />
@@ -594,7 +597,7 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
                       {/* Suggested reply (only when Auto reply was on) */}
                       {turn.suggestedReply && (
                         <div className="pt-2">
-                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Response</p>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">How to respond</p>
                           <div
                             className={`text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap min-h-8 ${
                               turn.suggestedReply.isBlurred ? 'select-none blur-md pointer-events-none' : ''
