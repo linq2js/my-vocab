@@ -66,6 +66,8 @@ export interface UseSpeechRecognitionOptions {
   interimResults?: boolean;
   /** Callback when a final result is available */
   onResult?: (transcript: string) => void;
+  /** Callback when recognition session ends (e.g. browser auto-stops after silence) */
+  onEnd?: () => void;
 }
 
 /**
@@ -88,6 +90,7 @@ export function useSpeechRecognition(
     continuous = true,
     interimResults = true,
     onResult,
+    onEnd,
   } = options;
 
   const [isListening, setIsListening] = useState(false);
@@ -97,8 +100,11 @@ export function useSpeechRecognition(
 
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
   const onResultRef = useRef(onResult);
-  const accumulatedFinalRef = useRef('');
   onResultRef.current = onResult;
+  const onEndRef = useRef(onEnd);
+  onEndRef.current = onEnd;
+  /** Track which result indices we already fired onResult for, to avoid duplicates in continuous mode */
+  const processedIndicesRef = useRef<Set<number>>(new Set());
 
   const isSupported =
     typeof window !== 'undefined' &&
@@ -107,7 +113,6 @@ export function useSpeechRecognition(
   const transcript = [finalTranscript, interimTranscript].filter(Boolean).join(' ');
 
   const clearTranscript = useCallback(() => {
-    accumulatedFinalRef.current = '';
     setFinalTranscript('');
     setInterimTranscript('');
     setError(null);
@@ -117,11 +122,11 @@ export function useSpeechRecognition(
     const rec = recognitionRef.current;
     if (rec) {
       try {
-        rec.abort();
+        rec.stop(); // graceful stop: lets browser finalize pending speech before firing onend
       } catch {
         // ignore
       }
-      recognitionRef.current = null;
+      // Don't null out recognitionRef here — onend needs it to match
     }
     setIsListening(false);
     setInterimTranscript('');
@@ -140,6 +145,7 @@ export function useSpeechRecognition(
     }
 
     stop(); // ensure previous instance is cleaned up
+    processedIndicesRef.current.clear();
 
     const rec = new Recognition() as ISpeechRecognition;
     recognitionRef.current = rec;
@@ -150,30 +156,30 @@ export function useSpeechRecognition(
 
     rec.onresult = (event: SpeechRecognitionEventLike) => {
       let interim = '';
-      let finalText = '';
-
       const results = event.results;
+
       for (let i = event.resultIndex; i < results.length; i++) {
         const result = results[i];
         const first = result?.[0];
         const text = (first && 'transcript' in first ? first.transcript : '') ?? '';
+
         if (result?.isFinal) {
-          finalText += text;
+          // Only fire onResult once per result index to avoid duplicates
+          if (!processedIndicesRef.current.has(i)) {
+            processedIndicesRef.current.add(i);
+            const trimmed = text.trim();
+            if (trimmed) {
+              setFinalTranscript(trimmed);
+              setInterimTranscript('');
+              onResultRef.current?.(trimmed);
+            }
+          }
         } else {
           interim += text;
         }
       }
 
-      if (finalText) {
-        const next = (accumulatedFinalRef.current ? `${accumulatedFinalRef.current} ` : '') + finalText.trim();
-        accumulatedFinalRef.current = next;
-        setFinalTranscript(next);
-        setInterimTranscript('');
-        // Fire onResult when we have final text so we don't miss it (onend often runs with empty when user stops before browser finalizes)
-        onResultRef.current?.(next);
-        accumulatedFinalRef.current = '';
-        setFinalTranscript('');
-      } else {
+      if (interim) {
         setInterimTranscript(interim);
       }
     };
@@ -188,27 +194,12 @@ export function useSpeechRecognition(
     };
 
     rec.onend = () => {
-      const accumulated = accumulatedFinalRef.current.trim();
       if (recognitionRef.current === rec) {
         recognitionRef.current = null;
         setIsListening(false);
         setInterimTranscript('');
-        // Fire onResult once per utterance (when listening ends), not per fragment
-        if (accumulated) {
-          onResultRef.current?.(accumulated);
-          accumulatedFinalRef.current = '';
-          setFinalTranscript('');
-        } else {
-          // Browser may deliver final result after onend; give it a short window so we don't miss the last phrase
-          setTimeout(() => {
-            const late = accumulatedFinalRef.current.trim();
-            if (late) {
-              onResultRef.current?.(late);
-              accumulatedFinalRef.current = '';
-              setFinalTranscript('');
-            }
-          }, 400);
-        }
+        setFinalTranscript('');
+        onEndRef.current?.();
       }
     };
 

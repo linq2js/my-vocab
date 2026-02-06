@@ -78,8 +78,10 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
   const [sourceLang, setSourceLang] = useState('en');
   const [targetLang, setTargetLang] = useState('en');
   const [selectedStyleId, setSelectedStyleId] = useState<string | null>(null);
-  /** When on, we request bot reply and suggested reply; when off, only correction + suggestion */
-  const [autoReply, setAutoReply] = useState(true);
+  /** Options: which sections to show */
+  const [showSuggestion, setShowSuggestion] = useState(true);
+  const [showBotReply, setShowBotReply] = useState(true);
+  const [showSuggestedReply, setShowSuggestedReply] = useState(true);
   /** Unified list: each turn has You said, Correction, Suggestion, and optionally Bot + Suggested reply */
   const [unifiedTurns, setUnifiedTurns] = useState<UnifiedTurn[]>([]);
   const [isCorrecting, setIsCorrecting] = useState(false);
@@ -89,10 +91,16 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
 
   const conversationRef = useRef<string[]>([]);
   conversationRef.current = unifiedTurns.map((t) => t.userSaid);
-  const autoReplyRef = useRef(autoReply);
-  autoReplyRef.current = autoReply;
+  const showSuggestionRef = useRef(showSuggestion);
+  showSuggestionRef.current = showSuggestion;
+  const showBotReplyRef = useRef(showBotReply);
+  showBotReplyRef.current = showBotReply;
+  const showSuggestedReplyRef = useRef(showSuggestedReply);
+  showSuggestedReplyRef.current = showSuggestedReply;
 
   const unifiedListRef = useRef<HTMLDivElement>(null);
+  /** Whether the user is currently holding the speak button */
+  const isHoldingRef = useRef(false);
 
   const { speak, stop: stopSpeech, isSupported: isSpeechSupported } = useSpeech();
 
@@ -101,6 +109,8 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
   const selectedStyle = selectedStyleId
     ? translationStyles.find((s) => s.id === selectedStyleId)
     : null;
+
+  const startListeningRef = useRef<() => void>(() => {});
 
   const {
     isSupported: isRecognitionSupported,
@@ -111,8 +121,14 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
     error: recognitionError,
   } = useSpeechRecognition({
     lang: toRecognitionLang(sourceLang),
-    continuous: true,
+    continuous: false,
     interimResults: true,
+    onEnd: useCallback(() => {
+      // If user is still holding the button, restart recognition (browser auto-stopped after silence)
+      if (isHoldingRef.current) {
+        startListeningRef.current();
+      }
+    }, []),
     onResult: useCallback(
       (finalTranscript: string) => {
         const segment = finalTranscript.trim();
@@ -125,7 +141,9 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
         const stylePrompt = selectedStyle?.prompt;
 
         const turnId = `turn-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        const wantAutoReply = autoReplyRef.current;
+        const wantSuggestion = showSuggestionRef.current;
+        const wantBotReply = showBotReplyRef.current;
+        const wantSuggestedReply = showSuggestedReplyRef.current;
 
         // Show turn immediately; update as each result arrives
         const placeholder: UnifiedTurn = {
@@ -136,8 +154,8 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
         };
         setUnifiedTurns((prev) => [...prev, placeholder]);
         setIsCorrecting(true);
-        setIsSuggesting(true);
-        if (wantAutoReply) setIsReplying(true);
+        if (wantSuggestion) setIsSuggesting(true);
+        if (wantBotReply) setIsReplying(true);
 
         const updateTurn = (patch: Partial<Omit<UnifiedTurn, 'id' | 'userSaid'>>) => {
           setUnifiedTurns((prev) =>
@@ -154,13 +172,15 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
           .catch(handleErr)
           .finally(() => setIsCorrecting(false));
 
-        const pSuggest = gpt
-          .suggestNextIdeas(historyWithNew, targetLang)
-          .then((suggestions) => updateTurn({ suggestionLines: parseSuggestionLines(suggestions) }))
-          .catch(handleErr)
-          .finally(() => setIsSuggesting(false));
+        const pSuggest = wantSuggestion
+          ? gpt
+              .suggestNextIdeas(historyWithNew, targetLang)
+              .then((suggestions) => updateTurn({ suggestionLines: parseSuggestionLines(suggestions) }))
+              .catch(handleErr)
+              .finally(() => setIsSuggesting(false))
+          : Promise.resolve();
 
-        const pReply = wantAutoReply
+        const pReply = wantBotReply
           ? gpt
               .getConversationReply(segment, targetLang, stylePrompt)
               .then((replyText) => {
@@ -168,14 +188,16 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
                   botReply: { text: replyText, isBlurred: true },
                 });
                 if (isSpeechSupported) speak(replyText, targetLang);
-                return gpt
-                  .getSuggestedReplyToBot(replyText, targetLang, stylePrompt)
-                  .then((suggestedReplyText) => {
-                    updateTurn({
-                      suggestedReply: { text: suggestedReplyText, isBlurred: true },
-                    });
-                  })
-                  .catch(() => {});
+                return wantSuggestedReply
+                  ? gpt
+                      .getSuggestedReplyToBot(replyText, targetLang, stylePrompt)
+                      .then((suggestedReplyText) => {
+                        updateTurn({
+                          suggestedReply: { text: suggestedReplyText, isBlurred: true },
+                        });
+                      })
+                      .catch(() => {})
+                  : Promise.resolve();
               })
               .catch(handleErr)
               .finally(() => setIsReplying(false))
@@ -186,10 +208,12 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
       [sourceLang, targetLang, selectedStyle?.prompt, isSpeechSupported, speak]
     ),
   });
+  startListeningRef.current = startListening;
 
   // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
+      isHoldingRef.current = false;
       setUnifiedTurns([]);
       setVoiceError(null);
       clearTranscript();
@@ -228,15 +252,24 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
     if (recognitionError) setVoiceError(recognitionError);
   }, [recognitionError]);
 
-  const handleStart = useCallback(() => {
+  /** Hold-to-speak: start recognition on press, stop on release */
+  const handlePressStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault(); // prevent long-press context menu on mobile
+    isHoldingRef.current = true;
     setVoiceError(null);
     stopSpeech();
     startListening();
   }, [startListening, stopSpeech]);
 
-  const handleStop = useCallback(() => {
+  const handlePressEnd = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    isHoldingRef.current = false;
     stopListening();
   }, [stopListening]);
+
+  const preventContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+  }, []);
 
   if (!isOpen) return null;
 
@@ -326,33 +359,81 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
             </div>
           </div>
 
-          {/* Result row: label + Auto reply toggler */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Result
-              </span>
-              <label className="flex items-center gap-2 cursor-pointer select-none">
+          {/* Options */}
+          <div>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Options</p>
+            <div className="space-y-2">
+              {/* Suggestion toggle */}
+              <label className="flex items-center justify-between cursor-pointer select-none">
+                <span className="text-sm text-gray-600 dark:text-gray-400">Ideas</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={showSuggestion}
+                  onClick={() => setShowSuggestion((prev) => !prev)}
+                  disabled={isListening}
+                  className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 ${
+                    showSuggestion ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition-transform ${
+                      showSuggestion ? 'translate-x-4' : 'translate-x-0.5'
+                    }`}
+                    style={{ marginTop: 2 }}
+                  />
+                </button>
+              </label>
+              {/* Chat with Bot toggle */}
+              <label className="flex items-center justify-between cursor-pointer select-none">
                 <span className="text-sm text-gray-600 dark:text-gray-400">Chat with Bot</span>
                 <button
                   type="button"
                   role="switch"
-                  aria-checked={autoReply}
-                  onClick={() => setAutoReply((prev) => !prev)}
+                  aria-checked={showBotReply}
+                  onClick={() => setShowBotReply((prev) => !prev)}
                   disabled={isListening}
-                  className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 ${
-                    autoReply ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                  className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 ${
+                    showBotReply ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
                   }`}
                 >
                   <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform ${
-                      autoReply ? 'translate-x-5' : 'translate-x-0.5'
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition-transform ${
+                      showBotReply ? 'translate-x-4' : 'translate-x-0.5'
+                    }`}
+                    style={{ marginTop: 2 }}
+                  />
+                </button>
+              </label>
+              {/* Suggested reply toggle (dimmed when Chat with Bot is off) */}
+              <label className={`flex items-center justify-between cursor-pointer select-none ${!showBotReply ? 'opacity-40 pointer-events-none' : ''}`}>
+                <span className="text-sm text-gray-600 dark:text-gray-400">Response</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={showSuggestedReply}
+                  onClick={() => setShowSuggestedReply((prev) => !prev)}
+                  disabled={isListening || !showBotReply}
+                  className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 ${
+                    showSuggestedReply ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition-transform ${
+                      showSuggestedReply ? 'translate-x-4' : 'translate-x-0.5'
                     }`}
                     style={{ marginTop: 2 }}
                   />
                 </button>
               </label>
             </div>
+          </div>
+
+          {/* Result */}
+          <div className="space-y-3">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Result
+            </span>
 
             {/* Unified message list */}
             <div className="min-h-[200px] max-h-[50vh] overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
@@ -379,7 +460,7 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
                       </div>
                       {/* Correction */}
                       <div>
-                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Correction</p>
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Corrected</p>
                         {turn.correction ? (
                           <>
                             <p className="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap mb-1">
@@ -415,9 +496,10 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
                           </p>
                         )}
                       </div>
-                      {/* Suggestion */}
+                      {/* Suggestion (only if suggestion lines exist or still loading) */}
+                      {(turn.suggestionLines.length > 0 || (isLatest && isSuggesting)) && (
                       <div>
-                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Suggestion</p>
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Ideas</p>
                         {turn.suggestionLines.length > 0 ? (
                           <>
                             <ul className="list-disc list-inside text-sm text-gray-900 dark:text-gray-100 space-y-0.5 mb-1">
@@ -455,10 +537,11 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
                           </p>
                         )}
                       </div>
+                      )}
                       {/* Bot (when Chat with Bot is on: show loading until reply arrives) */}
                       {(turn.botReply || (isLatest && isReplying)) && (
                         <div className="pt-2">
-                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Bot</p>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Reply</p>
                           {turn.botReply ? (
                             <>
                               <div
@@ -511,7 +594,7 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
                       {/* Suggested reply (only when Auto reply was on) */}
                       {turn.suggestedReply && (
                         <div className="pt-2">
-                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Suggested reply</p>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Response</p>
                           <div
                             className={`text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap min-h-8 ${
                               turn.suggestedReply.isBlurred ? 'select-none blur-md pointer-events-none' : ''
@@ -580,29 +663,24 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
           )}
         </div>
 
-        {/* Actions: Start / Stop voice */}
+        {/* Hold to speak button */}
         <div className="shrink-0 p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-b-xl">
-          {isListening ? (
-            <Button
-              onClick={handleStop}
-              variant="danger"
-              fullWidth
-              className="text-sm flex items-center justify-center gap-2"
-            >
-              <Icon name="mic-off" size="sm" />
-              Stop voice
-            </Button>
-          ) : (
-            <Button
-              onClick={handleStart}
-              disabled={!isRecognitionSupported}
-              fullWidth
-              className="text-sm flex items-center justify-center gap-2"
-            >
-              <Icon name="mic" size="sm" />
-              Start conversation mode
-            </Button>
-          )}
+          <Button
+            onMouseDown={handlePressStart}
+            onMouseUp={handlePressEnd}
+            onMouseLeave={isListening ? handlePressEnd : undefined}
+            onTouchStart={handlePressStart}
+            onTouchEnd={handlePressEnd}
+            onContextMenu={preventContextMenu}
+            disabled={!isRecognitionSupported}
+            variant={isListening ? 'danger' : 'primary'}
+            fullWidth
+            className="text-sm flex items-center justify-center gap-2 select-none"
+            style={{ touchAction: 'none', WebkitTouchCallout: 'none' } as React.CSSProperties}
+          >
+            <Icon name={isListening ? 'mic' : 'mic-off'} size="sm" />
+            {isListening ? 'Listening...' : 'Hold to speak'}
+          </Button>
         </div>
       </div>
     </ModalLayout>
