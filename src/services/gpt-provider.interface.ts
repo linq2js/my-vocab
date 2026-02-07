@@ -202,9 +202,10 @@ export interface IGptProvider {
    *
    * @param conversationHistory - Array of what the user said in this session (chronological)
    * @param language - Language for the suggestions
+   * @param contextPrompt - Optional context/scenario description (e.g. "You are a waiter at a restaurant…")
    * @returns Promise resolving to a single string with 2–4 bullet or numbered suggestions
    */
-  suggestNextIdeas(conversationHistory: string[], language: string): Promise<string>;
+  suggestNextIdeas(conversationHistory: string[], language: string, contextPrompt?: string): Promise<string>;
 
   /**
    * Generates a short conversational reply as if the bot is responding to the user.

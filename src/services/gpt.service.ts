@@ -228,9 +228,10 @@ export interface GptService {
    *
    * @param conversationHistory - What the user said in this session (chronological)
    * @param language - Language for the suggestions
+   * @param contextPrompt - Optional context/scenario description (e.g. "You are a waiter at a restaurant…")
    * @returns Promise resolving to a string with 2–4 suggestions (bulleted or numbered)
    */
-  suggestNextIdeas: (conversationHistory: string[], language: string) => Promise<string>;
+  suggestNextIdeas: (conversationHistory: string[], language: string, contextPrompt?: string) => Promise<string>;
 
   /**
    * Generates a short conversational reply as if the bot is responding to the user.
@@ -937,7 +938,8 @@ export function gptService(options: GptServiceOptions = {}): GptService {
    */
   const suggestNextIdeas = async (
     conversationHistory: string[],
-    language: string
+    language: string,
+    contextPrompt?: string
   ): Promise<string> => {
     const provider = await getActiveProvider();
     let lastError: Error | null = null;
@@ -945,7 +947,8 @@ export function gptService(options: GptServiceOptions = {}): GptService {
       try {
         return await provider.suggestNextIdeas(
           conversationHistory,
-          language.trim()
+          language.trim(),
+          contextPrompt?.trim()
         );
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));

@@ -645,14 +645,20 @@ Return ONLY the 2-letter language code, nothing else.`;
   /**
    * Suggests 2–4 short next things to say based on conversation history.
    */
-  async suggestNextIdeas(conversationHistory: string[], language: string): Promise<string> {
+  async suggestNextIdeas(conversationHistory: string[], language: string, contextPrompt?: string): Promise<string> {
     if (conversationHistory.length === 0) {
       return 'Try saying: "Hello", "How are you?", "What did you do today?", "Tell me about yourself."';
     }
 
-    const systemContent = `You are a conversational coach. Given what the user has said so far in this practice session, suggest 2–4 short, natural follow-up things they could say next in ${language}. Keep each suggestion to one short sentence or phrase. Output as a simple list (numbered or bulleted), nothing else.`;
+    // Only keep the last few messages to limit token usage
+    const recentHistory = conversationHistory.slice(-5);
 
-    const userContent = `What the user has said so far:\n${conversationHistory.map((s, i) => `${i + 1}. ${s}`).join('\n')}\n\nSuggest 2–4 short things they could say next (in ${language}):`;
+    let systemContent = `You are a conversational coach. Given what the user has said recently in this practice session, suggest 2–4 short, natural follow-up things they could say next in ${language}. Keep each suggestion to one short sentence or phrase. Output as a simple list (numbered or bulleted), nothing else.`;
+    if (contextPrompt) {
+      systemContent += ` Conversation context/scenario: ${contextPrompt}`;
+    }
+
+    const userContent = `What the user has said recently:\n${recentHistory.map((s, i) => `${i + 1}. ${s}`).join('\n')}\n\nSuggest 2–4 short things they could say next (in ${language}):`;
 
     const response = await fetch(OPENAI_API_URL, {
       method: 'POST',
@@ -703,11 +709,14 @@ Return ONLY the 2-letter language code, nothing else.`;
     }
     systemContent += ' Output only the reply text, nothing else.';
 
+    // Only keep the last N turns to limit token usage
+    const recentTurns = conversationHistory.slice(-10);
+
     // Build multi-turn messages from conversation history
     const messages: Array<{ role: string; content: string }> = [
       { role: 'system', content: systemContent },
     ];
-    for (const turn of conversationHistory) {
+    for (const turn of recentTurns) {
       messages.push({ role: 'user', content: turn.user });
       if (turn.bot) {
         messages.push({ role: 'assistant', content: turn.bot });

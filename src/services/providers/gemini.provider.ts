@@ -721,19 +721,21 @@ Generate a thoughtful, contextually appropriate reply. Only output the reply tex
   /**
    * Suggests 2–4 short next things to say based on conversation history.
    */
-  async suggestNextIdeas(conversationHistory: string[], language: string): Promise<string> {
+  async suggestNextIdeas(conversationHistory: string[], language: string, contextPrompt?: string): Promise<string> {
     if (conversationHistory.length === 0) {
       return 'Try saying: "Hello", "How are you?", "What did you do today?", "Tell me about yourself."';
     }
 
+    // Only keep the last few messages to limit token usage
+    const recentHistory = conversationHistory.slice(-5);
+
     const url = `${GEMINI_API_BASE}/${this.model}:generateContent?key=${this.apiKey}`;
 
-    const prompt = `You are a conversational coach. Given what the user has said so far in this practice session, suggest 2–4 short, natural follow-up things they could say next in ${language}. Keep each suggestion to one short sentence or phrase. Output as a simple list (numbered or bulleted), nothing else.
-
-What the user has said so far:
-${conversationHistory.map((s, i) => `${i + 1}. ${s}`).join('\n')}
-
-Suggest 2–4 short things they could say next (in ${language}):`;
+    let prompt = `You are a conversational coach. Given what the user has said recently in this practice session, suggest 2–4 short, natural follow-up things they could say next in ${language}. Keep each suggestion to one short sentence or phrase. Output as a simple list (numbered or bulleted), nothing else.`;
+    if (contextPrompt) {
+      prompt += `\n\nConversation context/scenario: ${contextPrompt}`;
+    }
+    prompt += `\n\nWhat the user has said recently:\n${recentHistory.map((s, i) => `${i + 1}. ${s}`).join('\n')}\n\nSuggest 2–4 short things they could say next (in ${language}):`;
 
     const response = await fetch(url, {
       method: 'POST',
@@ -779,12 +781,15 @@ Suggest 2–4 short things they could say next (in ${language}):`;
     }
     systemPrompt += ' Output only the reply text, nothing else.';
 
+    // Only keep the last N turns to limit token usage
+    const recentTurns = conversationHistory.slice(-10);
+
     // Build multi-turn contents for Gemini
     const contents: Array<{ role: string; parts: Array<{ text: string }> }> = [];
     // System instruction as first user message
     contents.push({ role: 'user', parts: [{ text: systemPrompt }] });
     contents.push({ role: 'model', parts: [{ text: 'Understood. I will reply naturally and briefly.' }] });
-    for (const turn of conversationHistory) {
+    for (const turn of recentTurns) {
       contents.push({ role: 'user', parts: [{ text: turn.user }] });
       if (turn.bot) {
         contents.push({ role: 'model', parts: [{ text: turn.bot }] });

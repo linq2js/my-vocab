@@ -421,6 +421,7 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
   showSuggestedReplyRef.current = showSuggestedReply;
 
   const unifiedListRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   /** Whether the user is currently holding the speak button */
   const isHoldingRef = useRef(false);
 
@@ -490,7 +491,7 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
 
         const pSuggest = wantSuggestion
           ? gpt
-              .suggestNextIdeas(historyWithNew, sourceLang)
+              .suggestNextIdeas(historyWithNew, sourceLang, replyStylePrompt)
               .then((suggestions) => updateTurn({ suggestionLines: parseSuggestionLines(suggestions) }))
               .catch(handleErr)
               .finally(() => setIsSuggesting(false))
@@ -657,7 +658,7 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
       {/* ── Conversation Tab ── */}
       {activeTab === 'conversation' && (
       <div className="flex flex-col flex-1 min-h-0">
-        <div className="flex-1 min-h-0 overflow-y-auto space-y-4 p-4">
+        <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto space-y-4 p-4">
           {/* Language */}
           <div>
             <label
@@ -812,7 +813,7 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
             </span>
 
             {/* Unified message list */}
-            <div className="min-h-[200px] max-h-[50vh] overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div className="min-h-[200px] p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
               <div ref={unifiedListRef} className="space-y-6">
                 {unifiedTurns.length === 0 && !isCorrecting && !isSuggesting && !isReplying && (
                   <p className="text-sm text-gray-400 dark:text-gray-500">
@@ -1055,6 +1056,19 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
                   <Icon name="spinner" size="sm" />
                   {isReplying ? 'Generating reply...' : 'Correcting...'}
                 </p>
+              )}
+              {unifiedTurns.length > 0 && (
+                <div className="flex justify-center mt-4">
+                  <button
+                    type="button"
+                    onClick={() => scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                    aria-label="Jump to top"
+                  >
+                    <Icon name="chevron-up" size="sm" />
+                    Jump to top
+                  </button>
+                </div>
               )}
             </div>
           </div>
