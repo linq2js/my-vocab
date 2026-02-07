@@ -47,7 +47,16 @@ function saveContexts(contexts: ConversationContext[]): void {
   localStorage.setItem(CONTEXTS_STORAGE_KEY, JSON.stringify(contexts));
 }
 
-type VoiceTab = 'conversation' | 'contexts';
+type VoiceTab = 'conversation' | 'contexts' | 'styles';
+
+/** Common translation styles (same as TranslateModal) */
+const COMMON_STYLES = [
+  { name: 'Formal', prompt: 'Translate in a formal, professional tone. Use polite language, avoid contractions, and maintain a business-appropriate style.' },
+  { name: 'Casual', prompt: 'Translate in a casual, friendly tone. Use conversational language, contractions are okay, keep it relaxed and approachable.' },
+  { name: 'Simple', prompt: 'Translate using simple, easy-to-understand language. Avoid complex vocabulary, use short sentences, suitable for beginners.' },
+  { name: 'Poetic', prompt: 'Translate with a poetic, literary style. Use expressive language, metaphors when appropriate, and maintain aesthetic beauty.' },
+  { name: 'Technical', prompt: 'Translate with precise technical terminology. Maintain accuracy, use domain-specific terms, be concise and clear.' },
+];
 
 /** Preset contexts for common daily scenarios */
 const PRESET_CONTEXTS: Omit<ConversationContext, 'id'>[] = [
@@ -174,6 +183,13 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
     }
   }, [selectedContextId]);
 
+  /** Change context and clear conversation memory */
+  const handleChangeContext = useCallback((id: string | null) => {
+    if (id === selectedContextId) return;
+    setSelectedContextId(id);
+    setUnifiedTurns([]);
+  }, [selectedContextId]);
+
   /** Contexts CRUD */
   const [editingContext, setEditingContext] = useState<ConversationContext | null>(null);
   const [contextFormName, setContextFormName] = useState('');
@@ -215,9 +231,9 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
     setContexts(updated);
     saveContexts(updated);
     if (selectedContextId === id) {
-      setSelectedContextId(null);
+      handleChangeContext(null);
     }
-  }, [contexts, selectedContextId]);
+  }, [contexts, selectedContextId, handleChangeContext]);
 
   const handleStartEditContext = useCallback((ctx: ConversationContext) => {
     setEditingContext(ctx);
@@ -259,6 +275,94 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
     saveContexts(updated);
     setShowPresets(false);
   }, [contexts]);
+
+  const settings = useSelector(settingsStore.settings$);
+  const translationStyles = (settings.translationStyles ?? []) as TranslationStyle[];
+  const selectedStyle = selectedStyleId
+    ? translationStyles.find((s) => s.id === selectedStyleId)
+    : null;
+
+  /** Style CRUD state */
+  const [isEditingStyle, setIsEditingStyle] = useState(false);
+  const [editingStyleId, setEditingStyleId] = useState<string | null>(null);
+  const [styleName, setStyleName] = useState('');
+  const [stylePrompt, setStylePrompt] = useState('');
+  const [isImprovingPrompt, setIsImprovingPrompt] = useState(false);
+  const [styleError, setStyleError] = useState<string | null>(null);
+  const [isAddingCommonStyles, setIsAddingCommonStyles] = useState(false);
+
+  const handleSaveStyle = useCallback(async () => {
+    if (!styleName.trim()) { setStyleError('Style name is required'); return; }
+    if (!stylePrompt.trim()) { setStyleError('Style description is required'); return; }
+    setStyleError(null);
+    try {
+      if (editingStyleId) {
+        await settingsStore.updateTranslationStyle(editingStyleId, { name: styleName.trim(), prompt: stylePrompt.trim() });
+      } else {
+        await settingsStore.addTranslationStyle({ name: styleName.trim(), prompt: stylePrompt.trim() });
+      }
+      setIsEditingStyle(false);
+      setEditingStyleId(null);
+      setStyleName('');
+      setStylePrompt('');
+    } catch (error) {
+      setStyleError(error instanceof Error ? error.message : 'Failed to save style');
+    }
+  }, [styleName, stylePrompt, editingStyleId]);
+
+  const handleImproveStylePrompt = useCallback(async () => {
+    if (!stylePrompt.trim()) { setStyleError('Enter a description first'); return; }
+    setIsImprovingPrompt(true);
+    setStyleError(null);
+    try {
+      const gpt = gptService();
+      const improved = await gpt.improveStylePrompt(stylePrompt);
+      setStylePrompt(improved);
+      gpt.close();
+    } catch (error) {
+      setStyleError(error instanceof Error ? error.message : 'Failed to improve prompt');
+    } finally {
+      setIsImprovingPrompt(false);
+    }
+  }, [stylePrompt]);
+
+  const handleEditStyle = useCallback((style: TranslationStyle) => {
+    setEditingStyleId(style.id);
+    setStyleName(style.name);
+    setStylePrompt(style.prompt);
+    setIsEditingStyle(true);
+    setStyleError(null);
+  }, []);
+
+  const handleDeleteStyle = useCallback(async (styleId: string) => {
+    await settingsStore.deleteTranslationStyle(styleId);
+    if (selectedStyleId === styleId) setSelectedStyleId(null);
+  }, [selectedStyleId]);
+
+  const handleCancelStyleEdit = useCallback(() => {
+    setIsEditingStyle(false);
+    setEditingStyleId(null);
+    setStyleName('');
+    setStylePrompt('');
+    setStyleError(null);
+  }, []);
+
+  const handleAddCommonStyles = useCallback(async () => {
+    setIsAddingCommonStyles(true);
+    setStyleError(null);
+    try {
+      const existingNames = new Set(translationStyles.map((s) => s.name.toLowerCase()));
+      const stylesToAdd = COMMON_STYLES.filter((s) => !existingNames.has(s.name.toLowerCase()));
+      if (stylesToAdd.length === 0) { setStyleError('All common styles already exist'); return; }
+      for (const style of stylesToAdd) {
+        await settingsStore.addTranslationStyle(style);
+      }
+    } catch (error) {
+      setStyleError(error instanceof Error ? error.message : 'Failed to add common styles');
+    } finally {
+      setIsAddingCommonStyles(false);
+    }
+  }, [translationStyles]);
 
   /** Unified list: each turn has You said, Correction, Suggestion, and optionally Bot + Suggested reply */
   const [unifiedTurns, setUnifiedTurns] = useState<UnifiedTurn[]>([]);
@@ -321,12 +425,6 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
   const isHoldingRef = useRef(false);
 
   const { speak, stop: stopSpeech, isSupported: isSpeechSupported } = useSpeech();
-
-  const settings = useSelector(settingsStore.settings$);
-  const translationStyles = (settings.translationStyles ?? []) as TranslationStyle[];
-  const selectedStyle = selectedStyleId
-    ? translationStyles.find((s) => s.id === selectedStyleId)
-    : null;
 
   const startListeningRef = useRef<() => void>(() => {});
 
@@ -539,6 +637,17 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
       >
         Contexts
       </button>
+      <button
+        type="button"
+        className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${
+          activeTab === 'styles'
+            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+        }`}
+        onClick={() => setActiveTab('styles')}
+      >
+        Styles
+      </button>
     </div>
   );
 
@@ -574,37 +683,30 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
 
           {/* Style */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Style
             </label>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <select
+                value={selectedStyleId ?? ''}
+                onChange={(e) => setSelectedStyleId(e.target.value || null)}
+                disabled={isListening}
+                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              >
+                <option value="">No style</option>
+                {translationStyles.map((style) => (
+                  <option key={style.id} value={style.id}>{style.name}</option>
+                ))}
+              </select>
               <button
                 type="button"
-                onClick={() => setSelectedStyleId(null)}
-                disabled={isListening}
-                className={`px-3 py-1.5 text-sm rounded-full transition-colors disabled:opacity-50 ${
-                  selectedStyleId === null
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                }`}
+                onClick={() => setActiveTab('styles')}
+                className="p-1.5 rounded-lg text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                aria-label="Manage styles"
+                title="Manage styles"
               >
-                No style
+                <Icon name="settings" size="sm" />
               </button>
-              {translationStyles.map((style) => (
-                <button
-                  key={style.id}
-                  type="button"
-                  onClick={() => setSelectedStyleId(style.id)}
-                  disabled={isListening}
-                  className={`px-3 py-1.5 text-sm rounded-full transition-colors disabled:opacity-50 ${
-                    selectedStyleId === style.id
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  {style.name}
-                </button>
-              ))}
             </div>
           </div>
 
@@ -681,7 +783,7 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
               <div className="mt-2 flex items-center gap-2">
                 <select
                   value={selectedContextId ?? ''}
-                  onChange={(e) => setSelectedContextId(e.target.value || null)}
+                  onChange={(e) => handleChangeContext(e.target.value || null)}
                   disabled={isListening}
                   className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                 >
@@ -1096,7 +1198,7 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
                     <div className="flex items-start justify-between gap-2">
                       <div
                         className="flex-1 cursor-pointer"
-                        onClick={() => setSelectedContextId(selectedContextId === ctx.id ? null : ctx.id)}
+                        onClick={() => handleChangeContext(selectedContextId === ctx.id ? null : ctx.id)}
                       >
                         <p className="text-sm font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
                           {ctx.name}
@@ -1134,6 +1236,181 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ── Styles Tab ── */}
+      {activeTab === 'styles' && (
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+          {!isEditingStyle ? (
+            <>
+              {/* Styles List */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Your Conversation Styles
+                </h3>
+
+                {translationStyles.length === 0 ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 py-4 text-center">
+                    No custom styles yet. Create one to personalize your conversations.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {translationStyles.map((style) => (
+                      <div
+                        key={style.id}
+                        className={`p-3 rounded-lg border transition-colors ${
+                          selectedStyleId === style.id
+                            ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div
+                            className="flex-1 min-w-0 cursor-pointer"
+                            onClick={() => setSelectedStyleId(selectedStyleId === style.id ? null : style.id)}
+                          >
+                            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                              {style.name}
+                              {selectedStyleId === style.id && (
+                                <span className="text-xs text-blue-600 dark:text-blue-400 font-normal">Active</span>
+                              )}
+                            </h4>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">
+                              {style.prompt}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1 ml-2">
+                            <button
+                              type="button"
+                              onClick={() => handleEditStyle(style)}
+                              className="p-1.5 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                              aria-label={`Edit ${style.name}`}
+                            >
+                              <Icon name="edit" size="sm" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteStyle(style.id)}
+                              className="p-1.5 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                              aria-label={`Delete ${style.name}`}
+                            >
+                              <Icon name="trash" size="sm" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Add Style Buttons */}
+              <div className="space-y-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsEditingStyle(true);
+                    setEditingStyleId(null);
+                    setStyleName('');
+                    setStylePrompt('');
+                    setStyleError(null);
+                  }}
+                  fullWidth
+                >
+                  <Icon name="plus" size="sm" className="mr-2" />
+                  Add New Style
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={handleAddCommonStyles}
+                  disabled={isAddingCommonStyles}
+                  loading={isAddingCommonStyles}
+                  fullWidth
+                >
+                  {isAddingCommonStyles ? 'Adding...' : 'Add Common Styles'}
+                </Button>
+              </div>
+
+              {/* Error Message for Common Styles */}
+              {styleError && !isEditingStyle && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                  <p className="text-sm text-red-600 dark:text-red-400">{styleError}</p>
+                </div>
+              )}
+            </>
+          ) : (
+            /* Style Edit Form */
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {editingStyleId ? 'Edit Style' : 'Create New Style'}
+              </h3>
+
+              {/* Style Name */}
+              <div>
+                <label
+                  htmlFor={`${selectId}-style-name`}
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
+                  Style Name
+                </label>
+                <input
+                  id={`${selectId}-style-name`}
+                  type="text"
+                  value={styleName}
+                  onChange={(e) => setStyleName(e.target.value)}
+                  placeholder="e.g., Formal Email, Casual Chat"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Style Prompt */}
+              <div>
+                <label
+                  htmlFor={`${selectId}-style-prompt`}
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
+                  Style Description
+                </label>
+                <textarea
+                  id={`${selectId}-style-prompt`}
+                  value={stylePrompt}
+                  onChange={(e) => setStylePrompt(e.target.value)}
+                  placeholder="Describe how you want the conversation tone to be, e.g., 'formal business tone' or 'friendly and casual'"
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+              </div>
+
+              {/* Improve with AI Button */}
+              <Button
+                variant="secondary"
+                onClick={handleImproveStylePrompt}
+                disabled={!stylePrompt.trim() || isImprovingPrompt}
+                loading={isImprovingPrompt}
+                fullWidth
+              >
+                {isImprovingPrompt ? 'Improving...' : 'Improve with AI'}
+              </Button>
+
+              {/* Error Message */}
+              {styleError && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                  <p className="text-sm text-red-600 dark:text-red-400">{styleError}</p>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <Button variant="secondary" onClick={handleCancelStyleEdit} fullWidth>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveStyle} fullWidth>
+                  {editingStyleId ? 'Update' : 'Create'}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
