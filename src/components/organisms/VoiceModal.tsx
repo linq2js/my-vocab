@@ -24,6 +24,73 @@ import type { Vocabulary } from '../../types/vocabulary';
 import type { VocabFormData } from './VocabForm';
 import type { TranslationStyle } from '../../types/translation';
 
+/* ── Conversation Context (persisted in localStorage) ── */
+interface ConversationContext {
+  id: string;
+  name: string;
+  description: string;
+}
+
+const CONTEXTS_STORAGE_KEY = 'voiceModal_contexts';
+const SELECTED_CONTEXT_KEY = 'voiceModal_selectedContextId';
+
+function loadContexts(): ConversationContext[] {
+  try {
+    const raw = localStorage.getItem(CONTEXTS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveContexts(contexts: ConversationContext[]): void {
+  localStorage.setItem(CONTEXTS_STORAGE_KEY, JSON.stringify(contexts));
+}
+
+type VoiceTab = 'conversation' | 'contexts';
+
+/** Preset contexts for common daily scenarios */
+const PRESET_CONTEXTS: Omit<ConversationContext, 'id'>[] = [
+  // Food & Drink
+  { name: 'Coffee Shop', description: 'You are a barista at a coffee shop. You are friendly, know the menu well, and enjoy recommending drinks. You ask about size, milk preference, and extras.' },
+  { name: 'Restaurant', description: 'You are a waiter at a restaurant. You greet guests warmly, present the menu, take orders, and suggest daily specials. You handle dietary requests politely.' },
+  { name: 'Fast Food', description: 'You are a cashier at a fast food restaurant. You take orders quickly, suggest combo meals, and confirm the order before processing payment.' },
+  { name: 'Bakery', description: 'You are a baker at a local bakery. You help customers pick pastries, breads, and cakes. You describe ingredients and flavors enthusiastically.' },
+  // Shopping
+  { name: 'Grocery Store', description: 'You are a staff member at a grocery store. You help customers find products, check stock, and suggest alternatives when items are unavailable.' },
+  { name: 'Clothing Store', description: 'You are a sales associate at a clothing store. You help customers find their size, suggest outfits, and guide them to the fitting rooms.' },
+  { name: 'Bookstore', description: 'You are a bookseller at a bookstore. You recommend books based on interests, discuss popular titles, and help find specific books.' },
+  { name: 'Electronics Store', description: 'You are a sales specialist at an electronics store. You explain product features, compare models, and help customers choose the right device.' },
+  // Travel & Transport
+  { name: 'Hotel Reception', description: 'You are a receptionist at a hotel. You handle check-in and check-out, answer questions about amenities, and recommend nearby attractions.' },
+  { name: 'Airport Check-in', description: 'You are an airline check-in agent. You verify documents, assign seats, handle baggage, and provide gate information.' },
+  { name: 'Taxi / Ride Share', description: 'You are a taxi driver. You confirm the destination, suggest routes, make small talk, and handle payment at the end of the ride.' },
+  { name: 'Tourist Information', description: 'You work at a tourist information center. You suggest popular attractions, provide maps, recommend restaurants, and help plan itineraries.' },
+  // Services
+  { name: 'Bank', description: 'You are a bank teller. You help customers with deposits, withdrawals, account inquiries, and explain banking services clearly.' },
+  { name: 'Post Office', description: 'You are a postal clerk. You help customers send packages and letters, explain shipping options, and calculate costs.' },
+  { name: 'Doctor\'s Office', description: 'You are a receptionist at a doctor\'s office. You schedule appointments, check in patients, and answer basic questions about wait times and procedures.' },
+  { name: 'Pharmacy', description: 'You are a pharmacist. You help customers with prescriptions, recommend over-the-counter remedies, and explain dosage instructions.' },
+  // Work & Education
+  { name: 'Job Interview', description: 'You are an interviewer conducting a job interview. You ask about experience, skills, and motivation. You are professional but approachable.' },
+  { name: 'Office Meeting', description: 'You are a colleague in an office meeting. You discuss project updates, share ideas, ask clarifying questions, and suggest next steps.' },
+  { name: 'Standup Meeting', description: 'You are a team member in a daily standup meeting. You share what you did yesterday, what you plan to do today, and any blockers. You ask teammates about their progress.' },
+  { name: 'Client Meeting', description: 'You are a client meeting with a service provider. You explain your requirements, ask about timelines and costs, and negotiate terms politely.' },
+  { name: 'Brainstorming Session', description: 'You are a colleague in a brainstorming session. You propose creative ideas, build on others\' suggestions, and keep the discussion energetic and open-minded.' },
+  { name: 'Performance Review', description: 'You are a manager conducting a performance review. You provide constructive feedback, discuss achievements, set goals, and listen to the employee\'s perspective.' },
+  { name: 'Classroom', description: 'You are a language teacher in a classroom. You explain concepts simply, ask questions to check understanding, and encourage students.' },
+  // Phone Calls
+  { name: 'Phone Call – General', description: 'You are the person on the other end of a phone call. You answer politely, help resolve the caller\'s question, and confirm details before hanging up.' },
+  { name: 'Phone – Make Appointment', description: 'You are a receptionist answering the phone. You help the caller schedule an appointment, check available time slots, confirm the date and time, and provide any preparation instructions.' },
+  { name: 'Phone – Customer Support', description: 'You are a customer support agent on the phone. You listen to the issue patiently, ask clarifying questions, troubleshoot step by step, and offer solutions or escalate if needed.' },
+  { name: 'Phone – Order Food', description: 'You are a staff member taking a phone order at a restaurant. You read out menu options, take the order carefully, confirm items, calculate the total, and provide an estimated delivery time.' },
+  { name: 'Phone – Cancel / Reschedule', description: 'You are a service representative handling a cancellation or rescheduling request over the phone. You verify the booking, explain any policies, and help find an alternative time or process the cancellation.' },
+  { name: 'Phone – Emergency', description: 'You are a 911 / emergency dispatcher. You stay calm, ask for the caller\'s location, determine the nature of the emergency, provide immediate instructions, and dispatch help.' },
+  // Daily Life
+  { name: 'Neighbor Chat', description: 'You are a friendly neighbor. You make small talk about the weather, neighborhood events, pets, and weekend plans.' },
+  { name: 'Gym', description: 'You are a fitness trainer at a gym. You suggest exercises, correct form, motivate clients, and discuss workout plans.' },
+];
+
 /** One turn in the unified list: user said, correction, suggestion, and optionally bot reply + suggested reply */
 interface UnifiedTurn {
   id: string;
@@ -79,21 +146,120 @@ export interface VoiceModalProps {
 export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): React.ReactElement | null => {
   const selectId = useId();
 
+  /** Tab state */
+  const [activeTab, setActiveTab] = useState<VoiceTab>('conversation');
+
   const [sourceLang, setSourceLang] = useState('en');
   const [selectedStyleId, setSelectedStyleId] = useState<string | null>(null);
   /** Options: which sections to show */
   const [showSuggestion, setShowSuggestion] = useState(true);
   const [showBotReply, setShowBotReply] = useState(true);
   const [showSuggestedReply, setShowSuggestedReply] = useState(true);
-  /** Bot role description (persisted in localStorage) */
-  const [botRole, setBotRole] = useState(() => localStorage.getItem('voiceModal_botRole') ?? '');
-  const botRoleRef = useRef(botRole);
-  botRoleRef.current = botRole;
-  const handleBotRoleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setBotRole(value);
-    localStorage.setItem('voiceModal_botRole', value);
+
+  /** Contexts (persisted in localStorage) */
+  const [contexts, setContexts] = useState<ConversationContext[]>(loadContexts);
+  const [selectedContextId, setSelectedContextId] = useState<string | null>(
+    () => localStorage.getItem(SELECTED_CONTEXT_KEY)
+  );
+  const selectedContext = contexts.find((c) => c.id === selectedContextId) ?? null;
+  const selectedContextRef = useRef(selectedContext);
+  selectedContextRef.current = selectedContext;
+
+  // Persist selected context id
+  useEffect(() => {
+    if (selectedContextId) {
+      localStorage.setItem(SELECTED_CONTEXT_KEY, selectedContextId);
+    } else {
+      localStorage.removeItem(SELECTED_CONTEXT_KEY);
+    }
+  }, [selectedContextId]);
+
+  /** Contexts CRUD */
+  const [editingContext, setEditingContext] = useState<ConversationContext | null>(null);
+  const [contextFormName, setContextFormName] = useState('');
+  const [contextFormDescription, setContextFormDescription] = useState('');
+  const handleAddContext = useCallback(() => {
+    const name = contextFormName.trim();
+    const description = contextFormDescription.trim();
+    if (!name) return;
+    const newContext: ConversationContext = {
+      id: `ctx-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      name,
+      description,
+    };
+    const updated = [...contexts, newContext];
+    setContexts(updated);
+    saveContexts(updated);
+    setContextFormName('');
+    setContextFormDescription('');
+    setEditingContext(null);
+  }, [contextFormName, contextFormDescription, contexts]);
+
+  const handleUpdateContext = useCallback(() => {
+    if (!editingContext) return;
+    const name = contextFormName.trim();
+    const description = contextFormDescription.trim();
+    if (!name) return;
+    const updated = contexts.map((c) =>
+      c.id === editingContext.id ? { ...c, name, description } : c
+    );
+    setContexts(updated);
+    saveContexts(updated);
+    setEditingContext(null);
+    setContextFormName('');
+    setContextFormDescription('');
+  }, [editingContext, contextFormName, contextFormDescription, contexts]);
+
+  const handleDeleteContext = useCallback((id: string) => {
+    const updated = contexts.filter((c) => c.id !== id);
+    setContexts(updated);
+    saveContexts(updated);
+    if (selectedContextId === id) {
+      setSelectedContextId(null);
+    }
+  }, [contexts, selectedContextId]);
+
+  const handleStartEditContext = useCallback((ctx: ConversationContext) => {
+    setEditingContext(ctx);
+    setContextFormName(ctx.name);
+    setContextFormDescription(ctx.description);
   }, []);
+
+  const handleCancelContextForm = useCallback(() => {
+    setEditingContext(null);
+    setContextFormName('');
+    setContextFormDescription('');
+  }, []);
+
+  const [showPresets, setShowPresets] = useState(false);
+
+  const handleAddPreset = useCallback((preset: Omit<ConversationContext, 'id'>) => {
+    const newContext: ConversationContext = {
+      id: `ctx-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      name: preset.name,
+      description: preset.description,
+    };
+    const updated = [...contexts, newContext];
+    setContexts(updated);
+    saveContexts(updated);
+  }, [contexts]);
+
+  const handleAddAllPresets = useCallback(() => {
+    const existingNames = new Set(contexts.map((c) => c.name.toLowerCase()));
+    const newContexts = PRESET_CONTEXTS
+      .filter((p) => !existingNames.has(p.name.toLowerCase()))
+      .map((p) => ({
+        id: `ctx-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${Math.random().toString(36).slice(2, 6)}`,
+        name: p.name,
+        description: p.description,
+      }));
+    if (newContexts.length === 0) return;
+    const updated = [...contexts, ...newContexts];
+    setContexts(updated);
+    saveContexts(updated);
+    setShowPresets(false);
+  }, [contexts]);
+
   /** Unified list: each turn has You said, Correction, Suggestion, and optionally Bot + Suggested reply */
   const [unifiedTurns, setUnifiedTurns] = useState<UnifiedTurn[]>([]);
   const [isCorrecting, setIsCorrecting] = useState(false);
@@ -191,9 +357,10 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
 
         const gpt = gptService();
         const stylePrompt = selectedStyle?.prompt;
-        const currentBotRole = botRoleRef.current.trim();
-        // Combine style prompt with bot role for reply APIs
-        const replyStylePrompt = [stylePrompt, currentBotRole ? `You are: ${currentBotRole}` : '']
+        const ctx = selectedContextRef.current;
+        const contextPrompt = ctx?.description?.trim();
+        // Combine style prompt with context for reply APIs
+        const replyStylePrompt = [stylePrompt, contextPrompt ? `You are: ${contextPrompt}` : '']
           .filter(Boolean)
           .join('. ') || undefined;
 
@@ -348,8 +515,38 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
 
   if (!isOpen) return null;
 
+  const headerTabs = (
+    <div className="flex gap-1">
+      <button
+        type="button"
+        className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${
+          activeTab === 'conversation'
+            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+        }`}
+        onClick={() => setActiveTab('conversation')}
+      >
+        Conversation
+      </button>
+      <button
+        type="button"
+        className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${
+          activeTab === 'contexts'
+            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+        }`}
+        onClick={() => setActiveTab('contexts')}
+      >
+        Contexts
+      </button>
+    </div>
+  );
+
   return (
-    <ModalLayout isOpen={isOpen} onClose={onClose} title="Conversation Mode" size="full">
+    <ModalLayout isOpen={isOpen} onClose={onClose} headerContent={headerTabs} size="full">
+
+      {/* ── Conversation Tab ── */}
+      {activeTab === 'conversation' && (
       <div className="flex flex-col flex-1 min-h-0">
         <div className="flex-1 min-h-0 overflow-y-auto space-y-4 p-4">
           {/* Language */}
@@ -479,16 +676,30 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
                 <span className="text-sm text-gray-600 dark:text-gray-400">How to respond</span>
               </label>
             </div>
-            {/* Bot role input (visible when Chat with Bot is on) */}
+            {/* Context selector (visible when Chat with Bot is on) */}
             {showBotReply && (
-              <input
-                type="text"
-                value={botRole}
-                onChange={handleBotRoleChange}
-                disabled={isListening}
-                placeholder="Describe the bot role (e.g. a barista at a coffee shop)"
-                className="mt-2 w-full px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-              />
+              <div className="mt-2 flex items-center gap-2">
+                <select
+                  value={selectedContextId ?? ''}
+                  onChange={(e) => setSelectedContextId(e.target.value || null)}
+                  disabled={isListening}
+                  className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                >
+                  <option value="">No context</option>
+                  {contexts.map((ctx) => (
+                    <option key={ctx.id} value={ctx.id}>{ctx.name}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('contexts')}
+                  className="p-1.5 rounded-lg text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  aria-label="Manage contexts"
+                  title="Manage contexts"
+                >
+                  <Icon name="settings" size="sm" />
+                </button>
+              </div>
             )}
           </div>
 
@@ -781,6 +992,150 @@ export const VoiceModal = ({ isOpen, onClose, onTranslate }: VoiceModalProps): R
           </Button>
         </div>
       </div>
+      )}
+
+      {/* ── Contexts Tab ── */}
+      {activeTab === 'contexts' && (
+        <div className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+            {/* Context form (add / edit) */}
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {editingContext ? 'Edit Context' : 'New Context'}
+              </p>
+              <input
+                type="text"
+                value={contextFormName}
+                onChange={(e) => setContextFormName(e.target.value)}
+                placeholder="Context name (e.g. Coffee Shop)"
+                className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <textarea
+                value={contextFormDescription}
+                onChange={(e) => setContextFormDescription(e.target.value)}
+                placeholder="Description / role (e.g. You are a barista at a coffee shop. You are friendly and recommend popular drinks.)"
+                rows={3}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              />
+              <div className="flex gap-2">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={editingContext ? handleUpdateContext : handleAddContext}
+                  disabled={!contextFormName.trim()}
+                >
+                  {editingContext ? 'Update' : 'Add'}
+                </Button>
+                {(editingContext || contextFormName || contextFormDescription) && (
+                  <Button variant="outline" size="sm" onClick={handleCancelContextForm}>
+                    Cancel
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Add common contexts */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowPresets((prev) => !prev)}
+                className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+              >
+                <Icon name={showPresets ? 'chevron-down' : 'chevron-right'} size="sm" />
+                Add common contexts
+              </button>
+              {showPresets && (
+                <div className="mt-2 space-y-2">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Click to add individual contexts, or add all at once.
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {PRESET_CONTEXTS.map((preset) => {
+                      const alreadyAdded = contexts.some((c) => c.name.toLowerCase() === preset.name.toLowerCase());
+                      return (
+                        <button
+                          key={preset.name}
+                          type="button"
+                          onClick={() => !alreadyAdded && handleAddPreset(preset)}
+                          disabled={alreadyAdded}
+                          title={preset.description}
+                          className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                            alreadyAdded
+                              ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 cursor-default'
+                              : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-blue-400 hover:bg-blue-50 dark:hover:border-blue-500 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400'
+                          }`}
+                        >
+                          {alreadyAdded ? `${preset.name} ✓` : `+ ${preset.name}`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <Button variant="outline" size="sm" onClick={handleAddAllPresets}>
+                    Add all
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Context list */}
+            {contexts.length === 0 ? (
+              <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">
+                No contexts yet. Create one above or add common contexts to get started.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {contexts.map((ctx) => (
+                  <div
+                    key={ctx.id}
+                    className={`p-3 rounded-lg border transition-colors ${
+                      selectedContextId === ctx.id
+                        ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div
+                        className="flex-1 cursor-pointer"
+                        onClick={() => setSelectedContextId(selectedContextId === ctx.id ? null : ctx.id)}
+                      >
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                          {ctx.name}
+                          {selectedContextId === ctx.id && (
+                            <span className="text-xs text-blue-600 dark:text-blue-400 font-normal">Active</span>
+                          )}
+                        </p>
+                        {ctx.description && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">
+                            {ctx.description}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleStartEditContext(ctx)}
+                          className="p-1.5 rounded-lg text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          aria-label="Edit context"
+                        >
+                          <Icon name="edit" size="sm" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteContext(ctx.id)}
+                          className="p-1.5 rounded-lg text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          aria-label="Delete context"
+                        >
+                          <Icon name="trash" size="sm" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Add Vocab Modal */}
       <ModalLayout
